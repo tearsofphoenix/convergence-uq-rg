@@ -1,0 +1,71 @@
+# ===== LaTeX auxiliary files =====
+*.aux
+*.log
+*.out
+*.toc
+*.synctex.gz
+*.fls
+*.fdb_latexmk
+*.bbl
+*.blg
+*-blx.bib
+*.run.xml
+
+# ===== Python =====
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+env/
+.venv/
+venv/
+ENV/
+
+# Jupyter
+.ipynb_checkpoints/
+
+# MLflow / experiment tracking
+mlruns/
+mlartifacts/
+
+# ===== MLX / Apple Silicon =====
+.mlx_cache/
+*.mlx_weights
+mlx_checkpoints/
+
+# ===== Data & Model Weights =====
+*.pt
+*.pth
+*.ckpt
+*.h5
+*.pkl
+*.pickle
+*.npz
+*.npy
+wandb/
+logs/
+results/
+outputs/
+
+# ===== IDE / Editor =====
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ===== OS =====
+.DS_Store
+
+# ===== Benchmark / Build outputs =====
+*.pdf  # keep only tracked PDFs

@@ -1,0 +1,44 @@
+name: hybridqml311
+channels:
+  - pypi
+  - conda-forge
+dependencies:
+  # Core scientific computing
+  - python=3.11
+  - numpy>=1.24
+  - scipy>=1.10
+  - matplotlib>=3.7
+  - scikit-learn
+
+  # Machine Learning
+  - pytorch::pytorch>=2.0
+  - pip
+  - pip:
+    - mlx>=0.31.0
+    - mlx-metal
+    - jax>=0.4
+    - jaxlib
+
+  # FEM / Scientific Computing
+  - fenics>=2019.1.0
+  - petsc4py
+  - scipy-openblas
+
+  # Data & Utilities
+  - h5py
+  - pandas
+  - tqdm
+  - pyyaml
+
+  # Literature / Writing
+  - jupyterlab
+  - overleaf
+
+  # Optional: CFD
+  # docker (for OpenFOAM container on Mac Mini)
+
+variables:
+  # Apple Silicon optimization
+  MLPB_ENABLE: "1"          # Enable MLX
+  JAX_ENABLE_X64: "1"       # Enable float64 in JAX
+  OMP_NUM_THREADS: "6"      # Limit threads on M4

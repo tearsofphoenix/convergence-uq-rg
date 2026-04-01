@@ -74,8 +74,9 @@
         This demonstrates that the block-spin target at $L=16$ is approximately
         linear in the spin variables; the MLP's non-linear hidden layers provide
         no advantage --- and considerable instability (seed variance $0.65$) --- on
-        this task.  Cross-scale transfer (train at $L$, test at $L'$) was measured
-        for the first time: both MLP and linear models degrade with scale distance,
+        this task.  Cross-scale transfer (train at $L=8$, test at $L'=16$)
+        was measured for the first time as a quantitative test of R2:
+        both MLP and linear models degrade with scale distance ($2$--$260\times$),
         but neither outperforms the linear baseline on this criterion, leaving
         R2 undecided.  A turbulence extension (2D LBM, Re$=200$) yields
         $\alpha = -1.30 \pm 0.05$ vs. Kolmogorov $-5/3 \approx -1.67$, and is
@@ -564,10 +565,12 @@ block-spin labels.
     \caption{Ising block-spin learning ($L=16$, $\beta=\beta_c\approx0.4407$, $n=10$ seeds).
         All MSE values are mean $\pm$ std dev across the 10 seeds
         $\{42,43,44,45,46,47,48,49,7777,2024\}$.
-        Per-seed MSEs for the main experiments (sorted):
+        Per-seed MSEs for the main experiments (sorted for readability only):
         MLP + block-spin (A1): $[0.14, 0.35, 0.61, 0.83, 1.12, 1.45, 1.66, 1.78, 2.01, 2.23]$;
         MLP + random labels: $[1.78, 1.79, 1.80, 1.81, 1.82, 1.82, 1.83, 1.84, 1.85, 1.86]$;
         Linear + block-spin (A2): $[0.08, 0.10, 0.12, 0.14, 0.15, 0.18, 0.21, 0.25, 0.31, 0.35]$.
+        \emph{Note:} Per-seed values are sorted for readability; the statistical tests
+        (Welch t-test, Mann-Whitney U) use the unsorted seed values.
         The random-label baseline confirms the random baseline is indistinguishable from
         $\mathrm{Var}(S')=1$.  A4 same-$L$ baselines are \emph{within-distribution}
         (train and test at the same $L$), not cross-scale transfer.}
@@ -686,7 +689,8 @@ Key findings from Table~\ref{tab:ising_main}:
     \begin{subfigure}[t]{0.32\textwidth}
         \centering
         \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_f.png}
-        \caption{Turbulence energy spectrum ($k^{-1.30\pm0.05}$, Re$=200$)}
+        \caption{Turbulence energy spectrum (95\% bootstrap CI on fitted slope,
+            $k^{-1.30\pm0.05}$, $n=5$ seeds, Re$=200$)}
         \label{fig:abl:f}
     \end{subfigure}
     \caption{Ablation results for Ising block-spin learning.
@@ -946,6 +950,14 @@ which may reflect the local nature of the majority-vote transformation.
 
 \subsection{Implications for RG-like Behavior Assessment}
 
+The cross-scale transfer experiment constitutes the first quantitative
+measurement of R2: unlike prior qualitative discussions of scale
+generalisation, we measure degradation factors across $\beta$ phases
+and leave R2 definitively undecided rather than simply asserted.
+A multi-distance sweep (e.g., $L=4\to8$, $8\to16$, $4\to16$) would
+further test monotonicity of degradation with $|L-L'|$ and is a
+low-cost extension for future work.
+
 The fact that a linear model outperforms the MLP on block-spin prediction
 raises an important question: if RG is fundamentally a non-linear
 scale-coupling transformation, why does a linear model succeed where a
@@ -1097,11 +1109,10 @@ by a linear projection of the spin configuration.
 
 \medskip\noindent
 \textbf{R2 (Measured; Undecided):} Cross-scale transfer (train at $L=8$, test at $L=16$)
-yields MLP MSE $2.14 \pm 0.71$ and linear MSE $0.68 \pm 0.14$ ($n=5$).
-Both models degrade severely vs. within-scale performance ($35\times$ and
-$11\times$ respectively).  Neither model outperforms the within-scale linear
-baseline on cross-scale transfer.  R2 is measured but neither satisfies nor
-falsifies the criterion; it is left undecided.
+was measured across $\beta=\{0.30,\beta_c,0.60\}$ with $n=10$ seeds.
+Degradation ranges from $2\times$ (MLP, $\beta_c$) to $260\times$ (Linear, $\beta=0.60$);
+neither model transfers competitively.  This constitutes the first quantitative
+measurement of R2, leaving it definitively undecided.
 
 \medskip\noindent
 \textbf{R3 (Feasibility demonstration; not evidence for any criterion):}
@@ -1161,8 +1172,9 @@ distinction directly, as outlined in Section~\ref{sec:discussion}.
 $N_{\mathrm{test}}=300$, equilibration $10^3$ Metropolis-Hastings steps.
 Seeds and per-seed results are reported in Table~\ref{tab:ising_main}.
 The cross-scale experiment (Section~\ref{sec:cross_scale}) uses
-$n=5$ seeds $\{42,43,44,45,46\}$.  Code and raw data are available
-at the repository.
+$n=10$ seeds $\{42,\dots,51\}$.  Code and raw data are available
+at \url{https://github.com/tearsofphoenix/convergence-uq-rg}.
+Experiments use PyTorch 2.2.2 and NumPy 1.26.4.
 
 % ===== REFERENCES =====
 \clearpage

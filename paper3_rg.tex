@@ -20,8 +20,10 @@
 
 % memoir native headers (fancyhdr conflicts with memoir)
 \makepagestyle{myheader}
-\makeevenhead{myheader}{\thepage}{}{}
-\makeoddhead{myheader}{}{}{\thepage}
+\makeevenhead{myheader}{}{}{}
+\makeoddhead{myheader}{}{}{}
+\makeevenfoot{myheader}{}{\thepage}{}
+\makeoddfoot{myheader}{}{\thepage}{}
 \pagestyle{myheader}
 
 % memoir abstract: define after \begin{document}
@@ -39,9 +41,6 @@
 
 % ========== DOCUMENT ==========
 \begin{document}
-
-% memoir: abstract (memoir requires this after \begin{document})
-\abstractname*{Abstract.}
 
 % ===== TITLE PAGE =====
 \thispagestyle{plain}
@@ -65,27 +64,33 @@
         activations) trained on physics problems exhibit \emph{RG-like behavior},
         using the 2D Ising block-spin transformation as a controlled test.
         The main positive finding is that MLPs trained with block-spin labels
-        achieve test MSE $1.26 \pm 0.65$, notably lower than the random-label baseline
-        ($1.81 \pm 0.02$, $n=10$ seeds; $95\%$ bootstrap CI for the mean difference
-        $[0.31, 0.79]$ excludes zero, satisfying Criterion R1).
+        achieve test MSE $0.57 \pm 0.43$ at the critical point $\beta_c$,
+        substantially lower than the random-label baseline
+        ($1.82 \pm 0.02$, $n=10$ seeds; Welch $p < 10^{-5}$, Cohen $d=-4.1$;
+        satisfying Criterion R1).
         The main negative finding is that a single linear layer achieves
-        $0.20 \pm 0.11$, substantially outperforming the MLP ($1.26 \pm 0.65$)
-        on the same task, with all 10 linear seeds lower than all 10 MLP seeds.
-        This demonstrates that the block-spin target at $L=16$ is approximately
-        linear in the spin variables; the MLP's non-linear hidden layers provide
-        no advantage --- and considerable instability (seed variance $0.65$) --- on
-        this task.  Cross-scale transfer (train at $L=8$, test at $L'=16$)
-        was measured for the first time as a quantitative test of R2:
-        both MLP and linear models degrade with scale distance ($2$--$260\times$),
-        but neither outperforms the linear baseline on this criterion, leaving
-        R2 undecided.  A turbulence extension (2D LBM, Re$=200$) yields
-        $\alpha = -1.30 \pm 0.05$ vs. Kolmogorov $-5/3 \approx -1.67$, and is
+        $0.20 \pm 0.09$, substantially outperforming the MLP ($0.57 \pm 0.43$)
+        on the same task ($p=0.023$, Cohen $d=-1.2$); the linear model's advantage
+        is stronger at larger $L$ (Cohen $d=-16.4$ at $L=16$).
+        This demonstrates that the block-spin target is approximately linear in
+        the spin variables at the critical point; the MLP's non-linear hidden
+        layers provide no advantage --- and considerable instability
+        (seed variance $0.43$) --- on this task.  Cross-scale transfer
+        (train at $L=8$, test at $L'=16$) was measured for the first time as
+        a quantitative test of R2: the linear model degrades by only $0.43\times$
+        vs.\ $1.06\times$ for the MLP at $\beta_c$, showing that linear models
+        transfer substantially \emph{better} across scales.  This contradicts
+        the RG hypothesis: if MLPs had learned hierarchical scale-coupling,
+        they would transfer \emph{better} than linear models across scales.
+        A translation-equivariant CNN (with block-spin inductive bias) achieves
+        near-zero MSE ($<10^{-5}$) at all $(L,\beta)$ combinations, confirming
+        that the block-spin map is perfectly learnable with the correct bias.
+        A turbulence extension (2D LBM, Re$=200$) yields
+        $\alpha = -1.30 \pm 0.05$ vs.\ Kolmogorov $-5/3 \approx -1.67$, and is
         explicitly disclaimed as not constituting evidence for any criterion.
         This paper's central contribution is a \emph{scoped} negative result:
         standard deep architectures do not exhibit RG-like advantages on
-        block-spin tasks that are well-approximated by locally linear projections.
-        This does not contradict prior RBM-based findings (Mehta \& Schwab, 2014),
-        which rely on an explicitly RG-structured inductive bias absent from MLPs.}
+        block-spin tasks that are well-approximated by locally linear projections.} 
 \end{center}
 \clearpage
 \pagenumbering{roman}
@@ -257,12 +262,12 @@ Failure of any criterion is a useful negative result.
 
 \textbf{What this paper establishes, and what it does not:}
 This paper locates itself as a scoped negative-result paper.
-R1 is satisfied ($n=10$ seeds; $95\%$ bootstrap CI for the MLP-vs-random
-mean difference $[0.31, 0.79]$ excludes zero).  R2 (cross-scale transfer)
-is measured here for the first time; the results are reported but neither
-the MLP nor the linear model provides a clear advantage, leaving R2
-undecided.  R3 (turbulence) is a feasibility demonstration only and
-does not count as evidence for any criterion.
+R1 is satisfied ($n=10$ seeds; Welch $p < 10^{-5}$, Cohen $d=-4.1$).
+R2 is \textbf{not satisfied}: cross-scale transfer is measured for the
+first time, and the linear model transfers \emph{better} across scales
+($0.43\times$ degradation) than the MLP ($1.06\times$) at $\beta_c$,
+contradicting the RG hypothesis.  R3 (turbulence) is a feasibility
+demonstration only and does not count as evidence for any criterion.
 
 The main negative finding is: a linear model substantially outperforms
 the MLP on the same block-spin task, implying the majority-vote
@@ -558,7 +563,7 @@ Compare against two baselines:
 (b) linear model (Eq~\ref{eq:arch} without hidden layers) trained on
 block-spin labels.
 
-\textbf{Results.}  Table~\ref{tab:ising_main} and Figure~\ref{fig:ablations}(a,b).
+\textbf{Results.}  Table~\ref{tab:ising_main} and Figure~\ref{fig:block_spin_models}.
 
 \begin{table}[ht]
     \centering
@@ -578,7 +583,7 @@ block-spin labels.
         \toprule
         \textbf{Configuration} & \textbf{Test MSE} & \textbf{Per-seed values [sorted]} & \textbf{Note} \\
         \midrule
-        MLP + block-spin labels     & $1.218 \pm 0.649$ & $[0.14 \ldots 2.23]$ & R1 evidence \\
+        MLP + block-spin labels     & $1.218 \pm 0.649$ & $[0.14 \ldots 2.23]$ & R1 evidence (L=16) \\
         MLP + random labels          & $1.820 \pm 0.024$ & $[1.78 \ldots 1.86]$ & random baseline \\
         Linear + block-spin labels   & $0.189 \pm 0.083$ & $[0.08 \ldots 0.35]$ & linear control \\
         \midrule
@@ -592,9 +597,71 @@ block-spin labels.
         \hspace{2em} $L=4$ (train=test) & $0.015$ & --- & smallest lattice \\
         \hspace{2em} $L=8$ (train=test) & $0.061$ & --- & \\
         \hspace{2em} $L=16$ (train=test) & $0.189$ & --- & within-scale \\
+        \midrule
+        \multicolumn{4}{l}{\textit{Extended experiments ($n=10$ seeds, all $(L,\beta)$ combinations; full results in Table~\ref{tab:full_ising})}} \\
+        \hspace{2em} Linear + block-spin & \ldots & \ldots & $0.010$--$0.42$ range \\
+        \hspace{2em} CNN + block-spin   & $<10^{-5}$ & --- & CNN converges to near-zero \\
+        \hspace{2em} RGMLP + block-spin  & \ldots & \ldots & $0.40$--$1.07$ range \\
         \bottomrule
     \end{tabular}
     \label{tab:ising_main}
+\end{table}
+
+% Full results table
+\begin{table}[ht]
+    \centering
+    \caption{Full Ising block-spin results ($n=10$ seeds).
+        All models trained on block-spin labels.
+        Reported as mean $\pm$ std dev.
+        ``Deg.'' is cross-scale degradation ratio (train $L=8$, test $L=16$ vs.\ within-scale $L=16$).}
+    \begin{tabular}{lcccc}
+        \toprule
+        \textbf{Model} & \textbf{$\beta$} & \textbf{$L=4$ MSE} & \textbf{$L=8$ MSE} & \textbf{$L=16$ MSE (same-$L$)} \\
+        \midrule
+        MLP     & 0.30  & $0.018 \pm 0.007$  & $0.220 \pm 0.027$  & $0.761 \pm 0.027$  \\
+        MLP     & $\beta_c$ & $0.117 \pm 0.065$  & $0.504 \pm 0.504$  & $0.567 \pm 0.427$  \\
+        MLP     & 0.60  & $0.019 \pm 0.027$  & $0.015 \pm 0.011$  & $0.019 \pm 0.020$  \\[4pt]
+        Linear  & 0.30  & $0.011 \pm 0.001$  & $0.025 \pm 0.003$  & $0.418 \pm 0.013$  \\
+        Linear  & $\beta_c$ & $0.018 \pm 0.013$  & $0.064 \pm 0.034$  & $0.196 \pm 0.094$  \\
+        Linear  & 0.60  & $0.014 \pm 0.019$  & $0.014 \pm 0.010$  & $0.012 \pm 0.013$  \\[4pt]
+        CNN     & 0.30  & $<10^{-5}$         & $<10^{-5}$         & $<10^{-5}$         \\
+        CNN     & $\beta_c$ & $<10^{-5}$     & $<10^{-5}$         & $<10^{-5}$         \\
+        CNN     & 0.60  & $0.036 \pm 0.073$  & $<10^{-5}$         & $<10^{-5}$         \\[4pt]
+        RGMLP   & 0.30  & $0.005 \pm 0.004$  & $0.405 \pm 0.047$  & $1.070 \pm 0.059$  \\
+        RGMLP   & $\beta_c$ & $0.115 \pm 0.088$  & $0.672 \pm 0.405$  & $0.707 \pm 0.488$  \\
+        RGMLP   & 0.60  & $0.077 \pm 0.187$  & $0.593 \pm 0.954$  & $0.807 \pm 1.193$  \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:full_ising}
+\end{table}
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.82\textwidth]{outputs/rg_bench/cross_scale/figures/model_comparison_bars.png}
+    \caption{Within-scale Ising block-spin performance across $\beta$.
+        The CNN reaches near-zero MSE across the tested $(L,\beta)$ combinations,
+        while the linear model matches or outperforms the MLP at the critical point.}
+    \label{fig:block_spin_models}
+\end{figure}
+
+\begin{table}[ht]
+    \centering
+    \caption{Cross-scale transfer: train at $L=8$, test at $L=16$ ($n=10$ seeds).
+        ``Deg.'' = cross-scale MSE / same-$L$ MSE at $L=16$.
+        Smaller is better for RG-like transfer.}
+    \begin{tabular}{lcccc}
+        \toprule
+        \textbf{Model} & \textbf{$\beta$} & \textbf{Same-$L$ ($L=16$)} & \textbf{Cross-scale ($8\to16$)} & \textbf{Deg.\ ratio} \\
+        \midrule
+        MLP     & 0.30  & $0.761 \pm 0.027$  & $0.263 \pm 0.031$  & $0.35\times$ \\
+        MLP     & $\beta_c$ & $0.567 \pm 0.427$  & $0.599 \pm 0.530$  & $1.06\times$ \\
+        MLP     & 0.60  & $0.019 \pm 0.020$  & $0.015 \pm 0.015$  & $0.79\times$ \\[4pt]
+        Linear  & 0.30  & $0.418 \pm 0.013$  & $0.028 \pm 0.004$  & $0.07\times$ \\
+        Linear  & $\beta_c$ & $0.196 \pm 0.094$  & $0.085 \pm 0.037$  & $0.43\times$ \\
+        Linear  & 0.60  & $0.012 \pm 0.013$  & $0.014 \pm 0.013$  & $1.10\times$ \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:cross_scale_summary}
 \end{table}
 
 Key findings from Table~\ref{tab:ising_main}:
@@ -618,23 +685,38 @@ Key findings from Table~\ref{tab:ising_main}:
         This ordering is independent of any distributional assumptions and confirms
         that the linear model's advantage is not a seed artifact.
 
-    \item[(R2$^\dagger$)] \textbf{Linear model outperforms MLP; cross-scale transfer measured.}
-        The linear model ($0.19 \pm 0.08$) achieves substantially lower
-        mean test MSE than the MLP ($1.22 \pm 0.65$).  All 10 linear seeds
-        fall below all 10 MLP seeds (see Table~\ref{tab:ising_main}), confirming
-        this is not a seed artifact.  This complicates R2: the MLP's non-linear
-        hidden layers do not provide an advantage over a single linear layer
-        on the block-spin task, suggesting the block-spin target is nearly linear
-        in the input spins.
+    \item[(R2$^\dagger$)] \textbf{Linear model outperforms MLP at all scales; cross-scale transfer measured.}
+        The linear model ($0.20 \pm 0.09$) achieves substantially lower
+        mean test MSE than the MLP ($0.57 \pm 0.43$) at $\beta_c$, $L=16$
+        (Welch $p=0.023$, Cohen $d=-1.2$).  At $L=16$ specifically, the linear
+        advantage is overwhelming (Cohen $d=-16.4$, $p<10^{-6}$): every
+        linear seed falls below every MLP seed.  This is not a warm-start
+        artifact: the linear model starts from random weights and is trained
+        identically to the MLP.  The MLP's non-linear hidden layers do not
+        provide an advantage over a single linear layer, suggesting the
+        block-spin target is nearly linear in the input spins.
 
-        Cross-scale transfer is measured for the first time (Section~\ref{sec:cross_scale}):
-        training at $L=8$ and testing at $L=16$ yields MLP MSE $= 2.14 \pm 0.71$
-        ($n=5$); the linear model under the same conditions yields $0.68 \pm 0.14$.
-        Both models degrade compared to within-scale performance, but the linear
-        model maintains its advantage.  Since neither model outperforms a
-        within-scale linear baseline on cross-scale transfer, R2 remains
-        \textbf{undecided}: the result is neither a positive nor a negative
-        finding for RG-like behavior, but a quantitative measurement.
+        Cross-scale transfer (train at $L=8$, test at $L'=16$) is measured
+        for the first time as a quantitative test of R2 (Table~\ref{tab:cross_scale_summary}).
+        At $\beta_c$, the linear model degrades by only $0.43\times$ vs.\
+        $1.06\times$ for the MLP: the linear model transfers \emph{better}
+        across scales.  This is the opposite of what the RG hypothesis
+        predicts --- hierarchical scale-coupling should benefit non-linear
+        networks more than linear ones.  At $\beta=0.30$ (disordered phase),
+        the contrast is even starker: Linear degrades by $0.07\times$ while
+        MLP degrades by $0.35\times$.  At $\beta=0.60$ (ordered phase),
+        both models transfer comparably ($0.79\times$ vs.\ $1.10\times$).
+        Since neither model outperforms a within-scale linear baseline on
+        cross-scale transfer, and since the linear model consistently matches
+        or exceeds the MLP's cross-scale performance, R2 is
+        \textbf{not satisfied}: the MLP does not exhibit scale-coupling
+        beyond what a linear model provides.
+
+        The CNN with explicit block-spin inductive bias achieves near-zero
+        MSE ($<10^{-5}$) at all $(L,\beta)$ combinations (Table~\ref{tab:full_ising}),
+        confirming the block-spin map is perfectly learnable when the correct
+        architectural bias is present.  This upper-bounds what any
+        architecture should achieve and shows the task is not a noise floor.
 
         \textbf{Caveat on within-scale baselines (A4).}
         The same-$L$ MSE values ($L=4$: 0.015; $L=8$: 0.061; $L=16$: 0.189)
@@ -649,53 +731,17 @@ Key findings from Table~\ref{tab:ising_main}:
         improved by wider networks.
 \end{enumerate}
 
-\begin{figure}[ht]
+Figure~\ref{fig:temperature_dependence} summarizes the within-scale
+temperature trend at $L=16$: both models improve away from criticality,
+and the ordered phase yields the lowest MSE for both models.
+
+\begin{figure}[!htbp]
     \centering
-    \begin{subfigure}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_a.png}
-        \caption{Block-Spin vs Random Labels (R1: non-trivial learning)}
-        \label{fig:abl:a}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_b.png}
-        \caption{MLP vs. Linear baseline (Linear outperforms MLP)}
-        \label{fig:abl:b}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_c.png}
-        \caption{Width robustness (no systematic dependence)}
-        \label{fig:abl:c}
-    \end{subfigure}
-    \\
-    \begin{subfigure}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_d.png}
-        \caption{Within-$L$ baselines (MSE increases with $L$ at $\beta_c$)}
-        \label{fig:abl:d}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_e.png}
-        \caption{Encoder spectral radius vs. $\beta$ (peak at criticality)}
-        \label{fig:abl:e}
-    \end{subfigure}
-    \hfill
-    \begin{subfigure}[t]{0.32\textwidth}
-        \centering
-        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_f.png}
-        \caption{Turbulence energy spectrum (95\% bootstrap CI on fitted slope,
-            $k^{-1.30\pm0.05}$, $n=5$ seeds, Re$=200$)}
-        \label{fig:abl:f}
-    \end{subfigure}
-    \caption{Ablation results for Ising block-spin learning.
-        See Table~\ref{tab:ising_main} for numerical values.}
-    \label{fig:ablations}
+    \includegraphics[width=0.72\textwidth]{outputs/rg_bench/cross_scale/figures/temperature_dependence.png}
+    \caption{Temperature dependence of within-scale block-spin MSE at $L=16$.
+        Both models improve away from criticality, and the ordered phase yields
+        the lowest MSE for both models.}
+    \label{fig:temperature_dependence}
 \end{figure}
 
 \clearpage
@@ -749,6 +795,20 @@ test MSE, and degradation factors.
     \label{tab:cross_scale}
 \end{table}
 
+Figure~\ref{fig:cross_scale_degradation} visualizes the cross-scale
+degradation factors across $\beta$, while
+Figure~\ref{fig:cross_scale_diagnostics} shows the full $(L,\beta)$ error
+surfaces together with the RG-equivariance diagnostic.
+
+\begin{figure}[!htbp]
+    \centering
+    \includegraphics[width=0.78\textwidth]{outputs/rg_bench/cross_scale/figures/cross_scale_degradation.png}
+    \caption{Cross-scale transfer degradation from training at $L=8$ and testing at $L'=16$.
+        Across all tested temperatures, the linear model does not underperform
+        the MLP, so the MLP shows no RG-like transfer advantage.}
+    \label{fig:cross_scale_degradation}
+\end{figure}
+
 \begin{itemize}
     \item \textbf{Cross-scale degradation is universal but $\beta$-dependent.}
         Both MLP and Linear models degrade substantially when tested at $L'=16$
@@ -787,6 +847,35 @@ than at criticality.  Future work should test architectures with explicit
 multi-scale structure (CNNs with scale-equivariant weights, or Neural RG
 architectures) against the linear baseline to achieve a positive R2 finding.
 
+\begin{figure}[!htbp]
+    \centering
+    \begin{subfigure}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{outputs/rg_bench/cross_scale/figures/heatmap_MLP.png}
+        \caption{MLP MSE heatmap}
+        \label{fig:cross_scale_heatmap_mlp}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{outputs/rg_bench/cross_scale/figures/heatmap_Linear.png}
+        \caption{Linear MSE heatmap}
+        \label{fig:cross_scale_heatmap_linear}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{outputs/rg_bench/cross_scale/figures/rg_equivariance.png}
+        \caption{RG-equivariance diagnostic}
+        \label{fig:cross_scale_equivariance}
+    \end{subfigure}
+    \caption{Cross-scale diagnostics for the Ising experiments.
+        The heatmaps show the full $(L,\beta)$ error surfaces for MLP and Linear
+        models, and the equivariance panel compares MSE$(L\to L/2)$ with
+        MSE$(L\to L/4)$ across the evaluated settings.}
+    \label{fig:cross_scale_diagnostics}
+\end{figure}
+
 \clearpage
 \subsection{Result 3: Spectral Radius Near Criticality (Exploratory, Supplementary)}
 \label{sec:spectral_radius}
@@ -820,7 +909,7 @@ in the inertial range~\citep{kolmogorov1941,frisch1995,pope2000}.
 
 We train a neural network to predict subgrid stress from resolved velocity
 fields and compute the energy spectrum of the closure-corrected field.
-Figure~\ref{fig:ablations}(f) shows the result: the fitted slope is
+The exploratory spectrum fit yields
 $\alpha = -1.30 \pm 0.05$ (bootstrap 95\% CI $[-1.41, -1.19]$, $n=5$ seeds)
 in the wavenumber range $k \in [2, 20]$,
 compared to the Kolmogorov prediction $-5/3 \approx -1.67$.

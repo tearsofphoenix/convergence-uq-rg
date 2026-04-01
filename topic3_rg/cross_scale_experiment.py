@@ -369,6 +369,15 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         results.append({**cfg, "train_mse": train_mse, "test_mse": test_mse,
                         "scale_distance": 0, "same_L": True, "part": "A"})
 
+    # ── Checkpoint after Part A ─────────────────────────────────────────────
+    import csv
+    ckpt_a = OUT_DIR / "cross_scale_partA.csv"
+    with open(ckpt_a, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=results[0].keys())
+        writer.writeheader()
+        writer.writerows(results)
+    print(f"  Part A checkpoint saved ({len(results)} rows): {ckpt_a}", flush=True)
+
     # ══ Part B: Cross-scale experiment ════════════════════════════════════════
     print("\n\n[Part B] Cross-scale: L=8→L=16 transfer")
     print("  Train at L=8 (zero-padded to 256-dim), test at L=16")
@@ -404,8 +413,16 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         results.append({**cfg, "train_mse": train_mse, "test_mse": test_mse,
                         "scale_distance": 8, "same_L": False, "part": "B"})
 
+    # ── Checkpoint after Part B ─────────────────────────────────────────────
+    ckpt_b = OUT_DIR / "cross_scale_partB.csv"
+    with open(ckpt_b, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=results[0].keys())
+        writer.writeheader()
+        writer.writerows(results)
+    print(f"  Part B checkpoint saved ({len(results)} rows): {ckpt_b}", flush=True)
+
     elapsed_total = time.time() - t0
-    print(f"\n\n  Total: {len(results, flush=True)} runs in {elapsed_total:.0f}s "
+    print(f"\n\n  Total: {len(results)} runs in {elapsed_total:.0f}s "
           f"({elapsed_total/len(results):.1f}s/run, "
           f"{elapsed_total/3600:.2f}h)")
 

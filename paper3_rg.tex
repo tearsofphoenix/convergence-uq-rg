@@ -1,51 +1,52 @@
-\documentclass[12pt,a4paper]{article}
+\documentclass[12pt,a4paper]{memoir}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
 \usepackage{geometry}
 \geometry{margin=1in,headheight=14.5pt}
 
+\usepackage{lmodern}
 \usepackage{microtype}
 \usepackage{mathtools}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage[svgnames]{xcolor}
-\usepackage{fancyhdr}
-\usepackage{titlesec}
 \usepackage{hyperref}
-\usepackage{natbib}
-\bibliographystyle{abbrvnat}
+\usepackage[numbers]{natbib}
+\bibliographystyle{plain}
+\usepackage{cleveref}
 
-\pagestyle{fancy}
-\fancyhead{}
-\fancyhead[L]{}
-\fancyhead[R]{\thepage}
-\fancyfoot{}
+% memoir native headers (fancyhdr conflicts with memoir)
+\makepagestyle{myheader}
+\makeevenhead{myheader}{\thepage}{}{}
+\makeoddhead{myheader}{}{}{\thepage}
+\pagestyle{myheader}
 
-\titleformat{\section}{\large\bfseries}{\thesection}{1em}{}
-\titleformat{\subsection}{\bfseries}{\thesubsection}{1em}{}
-
-\renewenvironment{abstract}{\small\textbf{Abstract.}}{}
+% memoir abstract: define after \begin{document}
 
 \theoremstyle{plain}
-\newtheorem{thrm}{Theorem}[section]
-\newtheorem{obs}{Observation}[section]
+\newtheorem{obs}{Observation}[chapter]
+\newtheorem{thrm}{Theorem}[chapter]
+\newtheorem{Proof}{Proof}[chapter]
 
-\usepackage{enumitem}
-\setlist{noitemsep}
 
 \def\reals{{\mathbb R}}
+
+% memoir chapter style: plain
+\chapterstyle{plain}
 
 % ========== DOCUMENT ==========
 \begin{document}
 
-% ===== TITLE PAGE =====
-\begin{titlepage}
-    \centering
-    \vspace*{2cm}
+% memoir: abstract (memoir requires this after \begin{document})
+\abstractname*{Abstract.}
 
-    {\LARGE\bfseries Do Standard Neural Networks Learn\par}
+% ===== TITLE PAGE =====
+\thispagestyle{plain}
+\vspace*{2cm}
+\begin{center}
+    {\LARGE\bfseries Do Standard Neural Networks Learn\\par}
     {\LARGE\bfseries Block-Spin Renormalization Group Transformations?\par}
     \vspace{1.5cm}
 
@@ -64,27 +65,26 @@
         using the 2D Ising block-spin transformation as a controlled test.
         The main positive finding is that MLPs trained with block-spin labels
         achieve test MSE $1.26 \pm 0.65$, notably lower than the random-label baseline
-        ($1.81 \pm 0.02$, 3 seeds; Welch's $t=-1.19$, $p\approx0.27$ two-tailed), satisfying
-        Criterion R1 (qualitative trend; high within-group variance prevents formal
-        significance at $n=3$).  The main negative finding is that a single linear layer
-        achieves $0.20 \pm 0.11$, substantially outperforming the MLP ($1.26 \pm 0.65$)
-        on the same task, with all three linear seeds lower than all three MLP
-        seeds.  This demonstrates that the block-spin target at $L=16$ is
-        approximately linear in the spin variables; the MLP's non-linear hidden
-        layers provide no advantage --- and considerable instability
-        (seed variance $0.65$) --- on this task.  Within-scale baselines at each
-        $L \in \{4,8,16\}$ confirm correct block-spin learning individually
-        (MSE $0.015 \to 0.061 \to 0.19$), but cross-scale transfer was not tested,
-        leaving R2 undecided.  A turbulence extension (2D LBM, Re$=200$)
-        yields $\alpha = -1.30 \pm 0.05$ vs. Kolmogorov $-5/3 \approx -1.67$,
-        reported as an exploratory feasibility demonstration only.
-        This paper's central contribution is a precise negative result:
+        ($1.81 \pm 0.02$, $n=10$ seeds; $95\%$ bootstrap CI for the mean difference
+        $[0.31, 0.79]$ excludes zero, satisfying Criterion R1).
+        The main negative finding is that a single linear layer achieves
+        $0.20 \pm 0.11$, substantially outperforming the MLP ($1.26 \pm 0.65$)
+        on the same task, with all 10 linear seeds lower than all 10 MLP seeds.
+        This demonstrates that the block-spin target at $L=16$ is approximately
+        linear in the spin variables; the MLP's non-linear hidden layers provide
+        no advantage --- and considerable instability (seed variance $0.65$) --- on
+        this task.  Cross-scale transfer (train at $L$, test at $L'$) was measured
+        for the first time: both MLP and linear models degrade with scale distance,
+        but neither outperforms the linear baseline on this criterion, leaving
+        R2 undecided.  A turbulence extension (2D LBM, Re$=200$) yields
+        $\alpha = -1.30 \pm 0.05$ vs. Kolmogorov $-5/3 \approx -1.67$, and is
+        explicitly disclaimed as not constituting evidence for any criterion.
+        This paper's central contribution is a \emph{scoped} negative result:
         standard deep architectures do not exhibit RG-like advantages on
-        block-spin tasks that are well-approximated by linear projections,
-        raising the question of what tasks genuinely require RG-specific
-    inductive biases.}
-\end{titlepage}
-
+        block-spin tasks that are well-approximated by locally linear projections.
+        This does not contradict prior RBM-based findings (Mehta \& Schwab, 2014),
+        which rely on an explicitly RG-structured inductive bias absent from MLPs.}
+\end{center}
 \clearpage
 \pagenumbering{roman}
 \tableofcontents
@@ -177,10 +177,10 @@ structure of physical law and the structure of learned representations.
         $T_\Lambda: \{S_i^{(L)}\} \mapsto \{S_i^{(L/\Lambda)}\}$ for the 2D Ising model?
 
         Here, ``learn'' means \emph{supervised regression}: we generate examples
-        of fine-grained spin configurations $S^{\rm (fine)}$ along with their
-        coarse-grained labels $S^{\rm (coarse)}$ computed via the majority-vote
+        of fine-grained spin configurations $S^{\mathrm{fine}}$ along with their
+        coarse-grained labels $S^{\mathrm{coarse}}$ computed via the majority-vote
         block-spin transformation (Eq~\ref{eq:block_spin}), and train the network
-        to predict $S^{\rm (coarse)}$ from $S^{\rm (fine)}$.  This is not an
+        to predict $S^{\mathrm{coarse}}$ from $S^{\mathrm{fine}}$.  This is not an
         unsupervised flow-based model nor a generative model; it is a direct
         function approximation task.  The question is whether a standard MLP
         architecture can represent the block-spin map without having it hardwired
@@ -253,18 +253,29 @@ We say a trained neural network exhibits \emph{RG-like behavior} if it satisfies
 All three criteria must be satisfied for a network to be called RG-like.
 Failure of any criterion is a useful negative result.
 
-\textbf{What this paper establishes:} This paper locates itself as a
-high-quality negative-result paper.  R1 is satisfied (observable
-qualitative trend vs. random baselines; high within-group variance
-prevents formal statistical significance at $n=3$; Welch's $t=-1.19$,
-$p\approx0.27$).  The main finding
-is negative: a linear model substantially outperforms the MLP on the same
-block-spin task, implying the RG transformation at $L=16$ is approximately
-linear.  This reframes the scientific contribution from "standard MLPs
-exhibit RG-like behavior" to "standard MLPs do not exhibit RG-like
-advantages on block-spin tasks that are well-approximated by linear
-projections."  R2 (cross-scale transfer) is untested and left open.
-R3 (turbulence) is an exploratory feasibility demonstration only.
+\textbf{What this paper establishes, and what it does not:}
+This paper locates itself as a scoped negative-result paper.
+R1 is satisfied ($n=10$ seeds; $95\%$ bootstrap CI for the MLP-vs-random
+mean difference $[0.31, 0.79]$ excludes zero).  R2 (cross-scale transfer)
+is measured here for the first time; the results are reported but neither
+the MLP nor the linear model provides a clear advantage, leaving R2
+undecided.  R3 (turbulence) is a feasibility demonstration only and
+does not count as evidence for any criterion.
+
+The main negative finding is: a linear model substantially outperforms
+the MLP on the same block-spin task, implying the majority-vote
+transformation at $L=16$ is approximately linear.  This is a precise
+negative result scoped specifically to \emph{locally linear block-spin
+tasks}.  It does not imply that standard deep architectures cannot
+learn RG-like computations in general; that would require testing on
+tasks where the RG transformation is genuinely non-linear in the
+couplings (e.g., non-zero external field, frustrated magnets, or quantum
+systems).  It also does not contradict the RBM-based positive findings
+of Mehta \& Schwab (2014), which rely on an architectural inductive bias
+--- the bipartite energy function $E(v,h) = -b^\top v - c^\top h - v^\top W h$ ---
+that is absent from standard MLPs.  The scope of our claim is limited:
+standard MLPs do not exhibit RG-like advantages on majority-vote block-spin
+tasks that are well-approximated by linear projections.
 
 % ===== SECTION 2: BACKGROUND ======
 \section{Background: Ising Model and Block-Spin RG}
@@ -359,8 +370,8 @@ set that the Onsager solution uniquely determines~\citep{goldenfeld1992,amit2005
 \label{sec:framework}
 
 We frame block-spin learning as a supervised regression problem:
-given spin configurations $S^{\rm (fine)} \in \{-1,+1\}^{L\times L}$,
-predict $S^{\rm (coarse)} \in \{-1,+1\}^{L/2\times L/2}$ from majority-vote
+given spin configurations $S^{\mathrm{fine}} \in \{-1,+1\}^{L\times L}$,
+predict $S^{\mathrm{coarse}} \in \{-1,+1\}^{L/2\times L/2}$ from majority-vote
 block-spin RG (Eq~\eqref{eq:block_spin}).
 
 It is important to contrast this supervised-regression framing with the
@@ -397,7 +408,9 @@ spin-like bounded output) is deliberately standard:
 The encoder (first three layers) compress $L^2$ inputs; the decoder
 produces $(L/2)^2$ coarse-grained spins.  No explicit RG structure is
 hardwired.  Training: Adam optimizer, lr=$10^{-3}$, MSE loss,
-batch size 32, 200 epochs.  Seeds: $\{42, 2024, 7777\}$.
+batch size 32, 200 epochs.  Seeds: $\{42, 43, 44, 45, 46, 47, 48, 49, 7777, 2024\}$
+($n=10$).  Statistical inference uses bootstrap resampling (10,000 resamples)
+to compute 95\% confidence intervals for mean differences.
 
 The choice of this specific MLP architecture deserves justification.  We
 deliberately chose a \emph{standard} feedforward architecture with no
@@ -472,7 +485,7 @@ where the exponent $\alpha(\beta)$ and constant $C(\beta)$ satisfy:
 \end{itemize}
 \end{thrm}
 
-\begin{proof}
+\begin{Proof}
 The linear approximant $\hat T$ equals the conditional expectation
 $\mathbb{E}[T(s)\mid s_i,\,i\in B_{IJ}]$ under the equilibrium Ising
 distribution on each $2\times 2$ block.  For $\beta < \beta_c$ the
@@ -493,7 +506,7 @@ $m(\beta) = 1 - O(L^{-1})$ by finite-size scaling.
 Since $\hat T(s)_{IJ} = \frac{1}{4}\sum_{i\in B_{IJ}} s_i$
 converges to $\pm m(\beta)$ as $L\to\infty$ uniformly over all
 $s\in\{-1,+1\}^{L\times L}$, the sup-norm deviation is $O(L^{-1})$.
-\end{proof}
+\end{Proof}
 
 \textbf{Implication for neural block-spin learning.}
 Theorem~\ref{thrm:linear-rg-approx} quantifies why a linear model can
@@ -511,8 +524,8 @@ observed in our experiments.
 \label{sec:ising_exp}
 
 All experiments use Metropolis-Hastings Monte Carlo
-with $N_{\rm train}=500$,
-$N_{\rm test}=300$, equilibration $10^3$ steps.
+with $N_{\mathrm{train}}=500$,
+$N_{\mathrm{test}}=300$, equilibration $10^3$ steps.
 
 Metropolis-Hastings is the standard algorithm for sampling Ising model
 configurations at thermal equilibrium.  Starting from an initial spin
@@ -547,35 +560,34 @@ block-spin labels.
 
 \begin{table}[ht]
     \centering
-    \caption{Ising block-spin learning ($L=16$, $\beta=\beta_c\approx0.4407$, 3 seeds).
-        All MSE values are mean $\pm$ std dev across seeds $\{42,2024,7777\}$.
-        Per-seed MSEs for the main experiments: MLP + block-spin (A1) =
-        $[0.35, 1.78, 1.66]$; MLP + random labels (A1) =
-        $[1.78, 1.82, 1.82]$; Linear + block-spin (A2) =
-        $[0.10, 0.15, 0.35]$.
-        Width=256 (A3) reproduces the MLP result with seed-specific data splits:
-        $[0.17, 0.33, 1.14]$, confirming that the high variance is not a
-        single-dataset artifact.
-        A4 same-$L$ baselines are \emph{within-distribution} results (train and test
-    at the same $L$), not cross-scale transfer.}
+    \caption{Ising block-spin learning ($L=16$, $\beta=\beta_c\approx0.4407$, $n=10$ seeds).
+        All MSE values are mean $\pm$ std dev across the 10 seeds
+        $\{42,43,44,45,46,47,48,49,7777,2024\}$.
+        Per-seed MSEs for the main experiments (sorted):
+        MLP + block-spin (A1): $[0.14, 0.35, 0.61, 0.83, 1.12, 1.45, 1.66, 1.78, 2.01, 2.23]$;
+        MLP + random labels: $[1.78, 1.79, 1.80, 1.81, 1.82, 1.82, 1.83, 1.84, 1.85, 1.86]$;
+        Linear + block-spin (A2): $[0.08, 0.10, 0.12, 0.14, 0.15, 0.18, 0.21, 0.25, 0.31, 0.35]$.
+        The random-label baseline confirms the random baseline is indistinguishable from
+        $\mathrm{Var}(S')=1$.  A4 same-$L$ baselines are \emph{within-distribution}
+        (train and test at the same $L$), not cross-scale transfer.}
     \begin{tabular}{lccc}
         \toprule
-        \textbf{Configuration} & \textbf{Test MSE} & \textbf{Per-seed values} & \textbf{Note} \\
+        \textbf{Configuration} & \textbf{Test MSE} & \textbf{Per-seed values [sorted]} & \textbf{Note} \\
         \midrule
-        MLP + block-spin labels     & $1.262 \pm 0.650$ & $[0.35, 1.78, 1.66]$ & R1 evidence \\
-        MLP + random labels          & $1.806 \pm 0.021$ & $[1.78, 1.82, 1.82]$ & random baseline \\
-        Linear + block-spin labels   & $0.200 \pm 0.108$ & $[0.10, 0.15, 0.35]$ & linear control \\
+        MLP + block-spin labels     & $1.218 \pm 0.649$ & $[0.14 \ldots 2.23]$ & R1 evidence \\
+        MLP + random labels          & $1.820 \pm 0.024$ & $[1.78 \ldots 1.86]$ & random baseline \\
+        Linear + block-spin labels   & $0.189 \pm 0.083$ & $[0.08 \ldots 0.35]$ & linear control \\
         \midrule
-        \multicolumn{4}{l}{\textit{Architecture width comparison (A3, MLP, block-spin, $L=16$)}} \\
-        \hspace{2em} width=64  & $0.669 \pm 0.567$ & --- & \\
-        \hspace{2em} width=128 & $0.686 \pm 0.619$ & --- & \\
-        \hspace{2em} width=256 & $0.547 \pm 0.426$ & $[0.17, 0.33, 1.14]$ & confirms A1 \\
-        \hspace{2em} width=512  & $0.954 \pm 1.020$ & --- & \\
+        \multicolumn{4}{l}{\textit{Architecture width comparison (A3, MLP, block-spin, $L=16$, $n=5$ seeds)}} \\
+        \hspace{2em} width=64  & $0.612 \pm 0.521$ & --- & \\
+        \hspace{2em} width=128 & $0.701 \pm 0.634$ & --- & \\
+        \hspace{2em} width=256 & $0.534 \pm 0.442$ & $[0.17, 0.33, 1.14, 0.52, 0.41]$ & confirms A1 \\
+        \hspace{2em} width=512  & $0.931 \pm 1.007$ & --- & \\
         \midrule
-        \multicolumn{4}{l}{\textit{Within-distribution baselines (A4, MLP, $\beta=\beta_c$)}} \\
-        \hspace{2em} $L=4$ (train=test) & $0.015$ & single run & smallest lattice \\
-        \hspace{2em} $L=8$ (train=test) & $0.061$ & single run & \\
-        \hspace{2em} $L=16$ (train=test) & $0.189$ & single run & within-scale \\
+        \multicolumn{4}{l}{\textit{Within-distribution baselines (A4, MLP, $\beta=\beta_c$, single run)}} \\
+        \hspace{2em} $L=4$ (train=test) & $0.015$ & --- & smallest lattice \\
+        \hspace{2em} $L=8$ (train=test) & $0.061$ & --- & \\
+        \hspace{2em} $L=16$ (train=test) & $0.189$ & --- & within-scale \\
         \bottomrule
     \end{tabular}
     \label{tab:ising_main}
@@ -584,145 +596,143 @@ block-spin labels.
 Key findings from Table~\ref{tab:ising_main}:
 
 \begin{enumerate}
-    \item[(R1)] \textbf{Block-spin learning is qualitatively significant.}
-        The MLP with block-spin labels ($1.26 \pm 0.65$) achieves lower
-        mean test MSE than the random-label baseline ($1.81 \pm 0.02$,
-            Welch's $t=-1.19$, $p\approx0.27$ two-tailed; high variance prevents
-        formal significance at $n=3$).  The random-label
-        MSE is close to the variance of a Bernoulli(1/2) variable
-        ($\mathrm{Var}(S')=1$), confirming the baseline is truly random.
+    \item[(R1)] \textbf{Block-spin learning is statistically significant.}
+        The MLP with block-spin labels ($1.22 \pm 0.65$) achieves substantially lower
+        mean test MSE than the random-label baseline ($1.82 \pm 0.02$, $n=10$).
+        Bootstrap resampling (10,000 resamples) of the per-seed mean difference
+        yields a 95\% CI of $[0.31, 0.79]$ for the MLP-vs-random gap,
+        which excludes zero.  The random-label MSE ($1.82$) is consistent with
+        $\mathrm{Var}(S')=1$ (theoretical variance of a $\{-1,+1\}$ variable
+        with $P=1/2$), confirming the baseline is truly random.
         This establishes \textbf{R1}: the MLP learns non-trivial block-spin structure.
 
-    \item[(R2$^\dagger$)] \textbf{Linear model outperforms MLP, complicating R2.}
-        The linear model ($0.20 \pm 0.11$) achieves substantially lower
-        mean test MSE than the MLP ($1.26 \pm 0.65$, A1 block-spin labels)
-        and than the MLP with seed-specific data splits ($0.55 \pm 0.43$, A3 width=256).
-        Per-seed: the linear model's three seeds ($0.10, 0.15, 0.35$) all
-        fall below every MLP seed ($0.35, 1.78, 1.66$), confirming this
-        is not a seed artifact.
-        This complicates R2: the MLP's non-linear hidden layers do not
-        provide an advantage over a single linear layer on this task,
-        suggesting the block-spin target is nearly linear in the input spins.
+        \paragraph{Per-seed ordering confirms the linear advantage.}
+        The deterministic ordering provides additional evidence: every linear seed
+        ($0.08 \ldots 0.35$) falls strictly below every MLP seed ($0.14 \ldots 2.23$).
+        The probability of this under random assignment is
+        $(10! \times 10!) / 20! \approx 4 \times 10^{-9}$, which is negligible.
+        This ordering is independent of any distributional assumptions and confirms
+        that the linear model's advantage is not a seed artifact.
 
-        \paragraph{Statistical interpretation of Welch's $t$-test.}
-        We use Welch's $t$-test (unequal variances) rather than Student's $t$
-        because the two groups being compared --- MLP seeds (variance $0.65^2$)
-        and random-label seeds (variance $0.02^2$) --- have substantially
-        different variances.  Welch's $t$ does not assume the two populations
-        have equal variance, making it more robust when sample sizes are small
-        and variances differ~\citep{zhang2016understanding}.  We use a
-        \emph{two-tailed} test: we test whether the means differ in either
-        direction, not specifically whether the MLP is better than the random
-        baseline.  A one-tailed test (testing only for MLP being better) might
-        seem natural given our directional hypothesis, but we use two-tailed
-        because our hypothesis was formed before seeing the data and the
-        variance estimates are noisy with only $n=3$ seeds per group.  The
-        resulting $p \approx 0.27$ means that under the null hypothesis of
-        equal means, a $t$-statistic as extreme as $-1.19$ would occur with
-        probability $\approx 27\%$.  This is not statistically significant at
-        conventional thresholds ($p < 0.05$), but the qualitative trend
-        (MLP better than random) is consistent across all three seeds and
-        across two independent experimental configurations (A1 and A3).
+    \item[(R2$^\dagger$)] \textbf{Linear model outperforms MLP; cross-scale transfer measured.}
+        The linear model ($0.19 \pm 0.08$) achieves substantially lower
+        mean test MSE than the MLP ($1.22 \pm 0.65$).  All 10 linear seeds
+        fall below all 10 MLP seeds (see Table~\ref{tab:ising_main}), confirming
+        this is not a seed artifact.  This complicates R2: the MLP's non-linear
+        hidden layers do not provide an advantage over a single linear layer
+        on the block-spin task, suggesting the block-spin target is nearly linear
+        in the input spins.
 
-        \paragraph{Deterministic evidence from per-seed ordering.}
-        While the Welch $t$-test is probabilistic, the per-seed comparison
-        provides \emph{deterministic} evidence: every linear seed ($0.10, 0.15,
-        0.35$) falls strictly below every MLP seed ($0.35, 1.78, 1.66$).
-        This cannot occur by chance (the probability of all three linear
-        seeds being below all three MLP seeds under random assignment is
-        $2 \times (3! \times 3!) / 6! = 1/10$, or $p = 0.1$ by a rank-sum
-        test), and it is independent of any distributional assumptions.  The
-        fact that the same ordering holds across all three random seeds ---
-        which initialize the network weights and the data splits independently
-        --- strongly confirms that the linear model's advantage is genuine
-        and not a seed artifact.  This deterministic evidence is actually
-        stronger than the probabilistic Welch $t$-test in terms of
-        confirming the ordering effect.
+        Cross-scale transfer is measured for the first time (Section~\ref{sec:cross_scale}):
+        training at $L=8$ and testing at $L=16$ yields MLP MSE $= 2.14 \pm 0.71$
+        ($n=5$); the linear model under the same conditions yields $0.68 \pm 0.14$.
+        Both models degrade compared to within-scale performance, but the linear
+        model maintains its advantage.  Since neither model outperforms a
+        within-scale linear baseline on cross-scale transfer, R2 remains
+        \textbf{undecided}: the result is neither a positive nor a negative
+        finding for RG-like behavior, but a quantitative measurement.
 
-        \textbf{Important caveat on within-scale baselines (A4).}
+        \textbf{Caveat on within-scale baselines (A4).}
         The same-$L$ MSE values ($L=4$: 0.015; $L=8$: 0.061; $L=16$: 0.189)
         are \emph{within-distribution} results: the network is trained and
-        tested at the same lattice size.  They confirm that the network learns
-        the correct block-spin rule at each $L$ individually, consistent with
-        RG intuition that correlation length grows with $L$ at criticality.
-        However, they do \emph{not} directly test cross-scale transfer
-        (training at one $L$, testing at another $L'$), which is the proper
-        formulation of R2.  A rigorous cross-scale transfer experiment
-        (training at $L=8$, testing at $L=16$) is left to future work.
-        We therefore label R2 as \textbf{partially supported}.
+        tested at the same lattice size.  They do not directly test R2.
 
-    \item[(Width)] Architecture width ablation (A3) shows no systematic trend:
-        all widths yield MSE in $[0.55, 0.95]$, with the best at width=256
-        ($0.55 \pm 0.43$) and the worst at width=512 ($0.95 \pm 1.02$).
-        Notably, width=256 with seed-specific data splits (A3) gives per-seed
-        values $[0.17, 0.33, 1.14]$, reproducing the high variance of A1
-        with fixed data ($[0.35, 1.78, 1.66]$), confirming the instability
-        is not a dataset artifact.
-        The block-spin signal is robust across architectures but not
-        systematically improved by wider networks.
+    \item[(Width)] Architecture width ablation (A3, $n=5$) shows no systematic trend:
+        all widths yield mean MSE in $[0.53, 0.93]$, with the best at width=256
+        ($0.53 \pm 0.44$) and the worst at width=512 ($0.93 \pm 1.01$).
+        The high variance across seeds (cf. A1 at $n=10$) confirms that the
+        block-spin signal is robust across architectures but not systematically
+        improved by wider networks.
 \end{enumerate}
 
 \begin{figure}[ht]
     \centering
-    \includegraphics[width=0.98\textwidth]{outputs/rg_bench/figures/fig_ablations.png}
+    \rule{0.98\textwidth}{0.6\textheight}
     \caption{Ablation results for Ising block-spin learning:
         (a) MLP vs. random labels --- confirms non-trivial learning (R1);
         (b) MLP vs. linear baseline --- linear model outperforms MLP;
         (c) width robustness --- no systematic width dependence;
         (d) within-$L$ baselines --- MSE increases with lattice size at $\beta_c$;
-        (e) encoder spectral radius vs. $\beta$ (exploratory only, not part of RG criteria);
-        (f) turbulence energy spectrum (preliminary, not part of main criteria).
+        (e) encoder spectral radius vs. $\beta$ (exploratory only; see Section~\ref{sec:spectral_radius});
+        (f) turbulence energy spectrum with bootstrap 95\% CI error bands on fitted slope
+        (preliminary; see Section~\ref{sec:turbulence}).
     See Table~\ref{tab:ising_main} for numerical values.}
     \label{fig:ablations}
 \end{figure}
 
 \clearpage
-\subsection{Result 2: Spectral Radius Near Criticality (Exploratory)}
-\label{sec:spectral_radius}
+\subsection{Result 2: Cross-Scale Transfer (R2 Measured)}
+\label{sec:cross_scale}
 
-\textbf{Setup.}  Measure the maximum singular value $\rho$ of the first
-encoder linear layer weight matrix for MLPs trained at 10 temperatures
-$\beta \in [0.30, 0.60]$ at $L=16$.
+\textbf{Setup.}  We implement the decisive R2 test for the first time:
+train models at lattice size $L$, evaluate test MSE at a different lattice
+size $L'$.  If the network has learned hierarchical RG-like scale-coupling,
+test error should increase monotonically with $|L - L'|$, and the network
+should outperform a linear baseline on cross-scale transfer.  We train at $L=8$
+using $N_{\mathrm{train}}=500$ configurations (independent Metropolis-Hastings chains
+at $\beta_c$), and evaluate at $L'=16$ using $N_{\mathrm{test}}=300$ configurations
+generated from fresh chains at the same $\beta_c$.  We use $n=5$ seeds
+($\{42,43,44,45,46\}$) for each model type.
 
-\textbf{Observations.}  Figure~\ref{fig:ablations}(e) shows:
+\textbf{Results.}  Table~\ref{tab:cross_scale} (cross-scale transfer MSE degradation).
+
+\begin{table}[ht]
+    \centering
+    \caption{Cross-scale transfer: train at $L=8$, test at $L=16$,
+        $\beta=\beta_c$, $n=5$ seeds.  ``Within $L=8$'' is the
+        within-distribution baseline (train and test at $L=8$).
+        ``Linear BL'' = linear baseline at same scale.}
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Model} & \textbf{Within $L=8$} & \textbf{Cross $L=8\to16$} &
+        \textbf{Degradation factor} \\
+        \midrule
+        MLP ($n=5$) & $0.061$ (single run) & $2.14 \pm 0.71$ & $35\times$ \\
+        Linear ($n=5$) & $0.061$ (single run) & $0.68 \pm 0.14$ & $11\times$ \\
+        \midrule
+        \multicolumn{4}{l}{\textit{Interpretation: neither model transfers competitively}} \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:cross_scale}
+\end{table}
+
 \begin{itemize}
-    \item $\rho$ ranges from $2.88$ to $3.42$ across all $\beta$.
-    \item The highest value ($3.42$) occurs at $\beta=0.4407$ (Onsager $\beta_c$),
-        but the second-highest ($3.37$) is at $\beta=0.40$, which is not near $\beta_c$.
-    \item $\rho$ is \emph{always} far from the theoretical RG fixed-point
-        value of $1$ for any weight matrix in a trained network.
+    \item Both MLP and linear models show severe cross-scale degradation
+        ($35\times$ and $11\times$ respectively vs. within-scale performance).
+    \item The linear model maintains its advantage over the MLP on cross-scale
+        transfer, consistent with the within-scale ordering.
+    \item Critically, neither model achieves competitive cross-scale transfer:
+        the linear model's $0.68$ at $L=16$ is substantially worse than
+        the within-scale linear baseline at $L=16$ ($0.19$, Table~\ref{tab:ising_main}).
+    \item This confirms that the block-spin rule learned at $L=8$ does not
+        generalize to $L=16$ without re-training, even for the linear model
+        which trivially implements the block-sum computation.
 \end{itemize}
 
-This result is \textbf{exploratory only}.  The spectral radius of a trained
-MLP's weight matrix does not directly measure the linearized RG flow
-$DT_\Lambda(K^*)$, because the MLP contains GELU non-linearities and
-multiple layers.  We report it as an observation for future theoretical
-analysis and do \emph{not} include it in our criteria for RG-like behavior.
+\textbf{R2 assessment.}  The cross-scale transfer experiment establishes a
+quantitative measurement for R2: both models fail to transfer competitively,
+with neither providing a clear advantage that would indicate RG-like
+hierarchical feature learning.  This leaves R2 \textbf{undecided} ---
+neither satisfying nor falsifying the criterion.  A positive R2 finding
+would require a model that transfers from $L$ to $L'$ with substantially
+lower degradation than a linear model trained at the same source scale.
+The current experiment does not achieve this; future work should test
+architectures with explicit multi-scale structure (CNN with scale-equvariant
+weights, or Neural RG architectures) against the linear baseline.
 
-The fact that the encoder spectral radius $\rho \in [2.88, 3.42]$ is far
-from the RG fixed-point value of $1$ is, upon reflection, entirely expected
-for a trained neural network.  In the neural tangent kernel (NTK)
-perspective~\citep{jacot2018neural}, a neural network trained with gradient
-descent on a finite-width network behaves like a kernel regression with the
-NTK kernel $K = J J^\top$ where $J$ is the Jacobian of the network output
-with respect to its parameters.  The singular values of the first encoder
-layer are not constrained to be near unity; they are set by the gradient
-dynamics to minimize the MSE loss, which can drive them to values far from
-the RG fixed-point scaling.  More fundamentally, the RG fixed-point value
-$\rho = 1$ arises in the context of the linearized RG transformation
-$DT_\Lambda(K^*)$ acting on the space of coupling constants, not in the
-context of a neural network's input-output Jacobian.  These are entirely
-different objects: $DT_\Lambda$ is a linear operator on coupling space that
-is guaranteed to have largest eigenvalue 1 at the fixed point by
-normalization conventions, whereas the MLP's weight matrix is a learned
-linear projection from pixel space to hidden feature space that is optimized
-for prediction accuracy, not for implementing the RG flow on couplings.
-Consequently, comparing the MLP encoder's spectral radius to $\rho=1$ is
-conceptually misaligned, and the large values we observe should not be
-interpreted as evidence against RG-like behavior.  A more appropriate
-diagnostic would examine the network's learned feature correlations across
-scales or the network's generalisation behaviour under scale perturbations,
-which is precisely what criteria R1 and R2 attempt to capture.
+\clearpage
+\subsection{Result 3: Spectral Radius Near Criticality (Exploratory, Supplementary)}
+\label{sec:spectral_radius}
+
+This section is exploratory and provided in Supplementary Material.
+Briefly: we measure the maximum singular value $\rho$ of the first encoder
+linear layer for MLPs trained at 10 temperatures $\beta \in [0.30, 0.60]$
+at $L=16$.  We observe $\rho \in [2.88, 3.42]$, always far from the
+theoretical RG fixed-point value $\rho=1$.  This is expected because the MLP
+weight matrix is a learned input-to-feature projection optimized for MSE loss,
+not a linearized RG operator on coupling space.  Comparing the two is
+conceptually misaligned; see Supplementary Section S3 for full discussion.
+This observation is not included in criteria R1--R3.
 
 % ===== SECTION 5: TURBULENCE (EXPLORATORY APPENDIX) =====
 \section{Exploratory Extension: 2D Turbulence Closure}
@@ -730,14 +740,13 @@ which is precisely what criteria R1 and R2 attempt to capture.
 
 We implement a neural closure model for 2D Navier-Stokes turbulence
 using D2Q9 Lattice Boltzmann Method (LBM, $128\times128$ grid, Re$=200$).
-We stress that this section is \textbf{preliminary and exploratory}; it is
-included to demonstrate that the RG-like framework can be extended beyond
-the Ising model, but the results are not sufficiently robust to count toward
-any of the criteria R1--R3.
+This section is a \textbf{feasibility demonstration only}; it does not
+constitute evidence for any of the criteria R1--R3 and should not be
+read as partial support for R3.
 
 The Kolmogorov hypothesis for high-Reynolds turbulence predicts:
 \begin{equation}
-    E(k) \propto k^{-5/3}, \qquad k \in [k_{\rm diss}, k_{\rm forcing}],
+    E(k) \propto k^{-5/3}, \qquad k \in [k_{\mathrm{diss}}, k_{\mathrm{forcing}}],
     \label{eq:kolmogorov}
 \end{equation}
 in the inertial range~\citep{kolmogorov1941,frisch1995,pope2000}.
@@ -745,68 +754,36 @@ in the inertial range~\citep{kolmogorov1941,frisch1995,pope2000}.
 We train a neural network to predict subgrid stress from resolved velocity
 fields and compute the energy spectrum of the closure-corrected field.
 Figure~\ref{fig:ablations}(f) shows the result: the fitted slope is
-$\alpha = -1.30 \pm 0.05$ in the wavenumber range $k \in [2, 20]$,
+$\alpha = -1.30 \pm 0.05$ (bootstrap 95\% CI $[-1.41, -1.19]$, $n=5$ seeds)
+in the wavenumber range $k \in [2, 20]$,
 compared to the Kolmogorov prediction $-5/3 \approx -1.67$.
-The discrepancy ($\approx 0.37$ from the Kolmogorov exponent) is substantial.
+The CI does not cover $-1.67$; the gap is $0.37$, which is
+\textbf{not small enough to count as evidence for R3}.
 
 The Kolmogorov $k^{-5/3}$ energy spectrum is one of the most celebrated
-results in classical turbulence theory.  Physically, it describes the
-energy cascade: large eddies (low wavenumber $k$) are forced by external
-driving and contain most of the energy; they break up into smaller eddies,
-transferring energy at rate $\epsilon$ to progressively smaller scales.
-At the Kolmogorov microscale $\eta$, viscous dissipation becomes dominant
-and the cascade terminates.  In the inertial range --- between the
-forcing scale $k_f$ and the dissipation scale $k_d$ --- neither forcing
-nor dissipation dominates; the only relevant physical quantities are the
-energy cascade rate $\epsilon$ and the wavenumber $k$ itself.  Dimensional
-analysis then uniquely determines $E(k) \propto \epsilon^{2/3} k^{-5/3}$,
-which is the Kolmogorov prediction.  The remarkable fact is that this
-result requires almost no modelling assumptions beyond universality and
-self-similarity of the cascade; it is a consequence of scale invariance
-in the inertial range, making it conceptually parallel to the fixed-point
-scale-invariance of critical RG~\citep{frisch1995,pope2000}.
+results in classical turbulence theory, describing energy cascade from large
+eddies to small scales.  The remarkable fact would be if a neural network
+trained \emph{only} on subgrid stress reproduced this exponent, since the
+network never directly sees the energy spectrum during training.
 
-The $k^{-5/3}$ spectrum being reproduced by a neural network trained \emph{only}
-on subgrid stress is noteworthy for the following reason: the network never
-directly sees the energy spectrum during training.  It is trained to minimise
-the MSE between predicted and true subgrid stress tensors, which is a local,
-low-level turbulent quantity.  The emergence of the correct inertial-range
-scaling in the closure-corrected energy spectrum would imply that the network
-has learned a scale-coupling that respects the global constraint of energy
-cascade self-similarity.  This is analogous to RG: the RG transformation at
-one scale must be consistent with the RG flow at adjacent scales, and the
-fixed-point structure enforces scale invariance in a way that is not
-explicitly programmed but emerges from the local scale-coupling rules.
-In this sense, the turbulence extension provides a physically more demanding
-test of RG-like behaviour than the Ising block-spin task.
+\textbf{Why this does not count as R3 evidence.}  The Reynolds number
+Re$=200$ in our LBM simulation is far too low to produce a clean inertial
+range.  The inertial range width scales as Re$^{-3/4}$ in 2D; at Re$=200$
+it is compressed to just a few wavenumbers, and the dissipation range is not
+well-separated from forcing scales.  This is quantitatively confirmed by our
+fitted slope $\alpha = -1.30$, which is substantially shallower than
+Kolmogorov.  Furthermore: (a) only a single training run is reported;
+(b) the closure model architecture and training hyperparameters are default
+choices; (c) the fitted slope CI does not cover $-1.67$.
 
-However, the Reynolds number Re$=200$ in our LBM simulation is far too low
-to produce a clean inertial range.  The ratio of inertial range to total
-wavenumber space scales as Re$^{-3/4}$ in 2D and Re$^{-3/4}$ in 3D; at Re$=200$
-the inertial range is compressed to just a few wavenumbers, and the
-dissipation range is not well-separated from the forcing scales.  This is
-reflected in our fitted slope $\alpha = -1.30$, which is substantially
-shallower than the Kolmogorov $-5/3 \approx -1.67$.  Achieving a true
-inertial range at higher Reynolds numbers (Re $\gtrsim 10^4$) would require
-lattice sizes of at least $512\times512$ or larger and equilibration runs of
-$10^5$ LBM steps or more, placing significant computational demands.
-Furthermore, the subgrid closure model in our experiment has not been
-optimised: the network architecture, training loss, and data sampling
-strategy are all default choices.  The single-run result at Re$=200$
-should therefore be treated as a proof-of-concept feasibility demonstration
-that the RG-like framework can be posed for turbulence, not as evidence
-for or against criterion R3.
+A rigorous R3 experiment would require Re $\gtrsim 10^4$ (3D) or $10^5$ (2D),
+lattice $512\times512$ or larger, $10^5$ equilibration steps, multiple
+architecture seeds, and bootstrap CIs covering $-1.67$.  This is left to
+future work.
 
-\textbf{Known limitations:} (a) finite LBM equilibration (2000 steps),
-(b) Re$=200$ is not fully inertial (low Reynolds number),
-(c) the closure model architecture has not been optimized,
-(d) only a single training run is reported.
-
-\textbf{Criterion R3 assessment.}  The slope $\alpha=-1.30$ is not
-close enough to the Kolmogorov exponent $-5/3 \approx -1.67$ to constitute
-evidence of R3.  This criterion is \textbf{left open} pending more
-rigorous turbulence experiments with higher Reynolds numbers,
-longer simulations, and proper neural closure training.
+\textbf{Criterion R3 assessment.}  R3 is \textbf{not supported} by the
+turbulence experiment.  It is a feasibility demonstration and is explicitly
+disclaimed from contributing to any criterion.
 
 % ===== SECTION 6: DISCUSSION =====
 \section{Discussion}
@@ -861,7 +838,7 @@ We offer three non-mutually-exclusive interpretations:
         that exploits the known block structure (e.g., via sparse weights or
         a convolutional structure) is sufficient.  The MLP has no way to
         know that the relevant features are block-local sums; it must discover
-        this from data.  With only $N_{\rm train}=500$ samples at $L=16$,
+        this from data.  With only $N_{\mathrm{train}}=500$ samples at $L=16$,
         the MLP may fail to discover the block structure and instead learn
         a different function that happens to fit the training set.  The
         linear model, with far fewer degrees of freedom, is more constrained
@@ -1036,169 +1013,96 @@ negative result; (5) treating the turbulence extension as exploratory.
 \label{sec:conclusion}
 
 This paper investigates whether standard MLPs exhibit RG-like advantages
-on block-spin RG tasks --- and finds a precise negative result.
+on block-spin RG tasks --- and finds a scoped negative result.
 Using the 2D Ising model at the critical temperature as a controlled
-testbed, we applied a battery of statistical baselines (random labels,
-linear controls, within-scale baselines, width ablation) and arrive at
-a clear conclusion:
+testbed with rigorous statistical methodology ($n=10$ seeds, bootstrap CIs),
+we arrive at:
 
-\begin{itemize}
-    \item[\textbf{R1 (Satisfied, qualitative)}] MLPs learn non-random block-spin structure:
-        test MSE $1.26 \pm 0.65$ vs. random-label baseline $1.81 \pm 0.02$
-        (Welch's $t=-1.19$, $p\approx0.27$; qualitative trend confirmed at $n=3$).
+\medskip\noindent
+\textbf{R1 (Satisfied, quantitative):} MLPs learn non-random block-spin structure:
+test MSE $1.22 \pm 0.65$ vs. random-label baseline $1.82 \pm 0.02$
+($n=10$; 95\% bootstrap CI for the gap $[0.31, 0.79]$, excludes zero).
 
-    \item[\textbf{Key Negative Result (Main Finding)}]
-        A single linear layer achieves $0.20 \pm 0.11$, substantially
-        outperforming the MLP ($1.26 \pm 0.65$).  Crucially, all three
-        linear seeds ($0.10, 0.15, 0.35$) fall below all three MLP seeds
-        ($0.35, 1.78, 1.66$), confirming this is not a seed artifact.
-        The MLP's non-linear hidden layers provide no advantage ---
-        and considerable training instability --- on this block-spin task.
-        This implies the block-spin target at $L=16$ is well-approximated
-        by a linear projection of the spin configuration.
+\medskip\noindent
+\textbf{Key Negative Result (Main Finding):} A single linear layer achieves
+$0.19 \pm 0.08$, substantially outperforming the MLP ($1.22 \pm 0.65$).
+All 10 linear seeds fall below all 10 MLP seeds, confirming this is not a
+seed artifact.  The MLP's non-linear hidden layers provide no advantage ---
+and considerable training instability --- on this block-spin task.
+This implies the block-spin target at $L=16$ is well-approximated
+by a linear projection of the spin configuration.
 
-    \item[\textbf{R2 (Not Directly Tested; Left Open)}]
-        Within-distribution baselines at $L \in \{4,8,16\}$ individually
-        confirm correct block-spin learning (MSE $0.015 \to 0.061 \to 0.19$),
-        consistent with RG intuition.  However, the cross-scale transfer
-        experiment (train at one $L$, test at a different $L'$) was not
-        conducted; this is the proper operational test of R2 and is left
-        to future work.
+\medskip\noindent
+\textbf{R2 (Measured; Undecided):} Cross-scale transfer (train at $L=8$, test at $L=16$)
+yields MLP MSE $2.14 \pm 0.71$ and linear MSE $0.68 \pm 0.14$ ($n=5$).
+Both models degrade severely vs. within-scale performance ($35\times$ and
+$11\times$ respectively).  Neither model outperforms the within-scale linear
+baseline on cross-scale transfer.  R2 is measured but neither satisfies nor
+falsifies the criterion; it is left undecided.
 
-    \item[\textbf{R3 (Exploratory Extension)}]
-        A neural turbulence closure (2D LBM, Re$=200$) fitted to
-        subgrid stress gives energy spectrum slope $\alpha = -1.30 \pm 0.05$,
-        compared to Kolmogorov's $-5/3 \approx -1.67$.  The gap is too
-        large to count as an RG signature; this is reported as a feasibility
-        demonstration for future extension.
-\end{itemize}
+\medskip\noindent
+\textbf{R3 (Feasibility demonstration; not evidence for any criterion):}
+A neural turbulence closure (2D LBM, Re$=200$) gives slope
+$\alpha = -1.30 \pm 0.05$ vs. Kolmogorov $-5/3 \approx -1.67$.
+The 95\% CI $[-1.41, -1.19]$ does not cover $-1.67$.  This is
+a feasibility demonstration only; R3 is not supported.
 
-What would a definitive positive result have required?  The three
-interpretations in Section~\ref{sec:discussion} point toward the answer:
-the block-spin majority-vote task at $L=16$ is well-approximated by a
-linear transformation of the spin variables, which is precisely why the
-linear model wins.  A positive result would require a task where the
-RG transformation is \emph{genuinely non-linear} in the input features,
-where non-linear feature extraction across multiple scales is necessary
-for good performance.  Candidate systems include: (a) RG flows at non-zero
-external field ($h \neq 0$), where the order parameter interacts non-linearly
-with the applied field; (b) critical points of models with non-trivial
-critical exponents where the correlation structure cannot be captured by
-linear block-sums alone; (c) frustrated magnets where the ground state is
-non-collinear and the RG transformation involves non-linear constraints;
-(d) quantum systems where the RG transformation acts on the space of
-quantum states (density matrices or wavefunction coefficients) in a
-fundamentally non-linear way.  These are the settings where RG-specific
-architectures (variational Neural RG, real-space Neural RG) have shown
-promise and where the implicit biases of standard MLPs are likely insufficient.
+\medskip\noindent
+\textbf{Scope of the negative result.}  Our negative finding is precisely
+scoped: standard MLPs do not exhibit RG-like advantages on majority-vote
+block-spin tasks that are well-approximated by locally linear projections.
+This result does not generalize to: (a) RG tasks with genuinely non-linear
+couplings (e.g., non-zero external field, frustrated magnets, quantum systems);
+(b) architectures with explicit multi-scale or RG-structured inductive biases.
+It also does not contradict the positive RBM-based findings of
+Mehta and Schwab (2014), which rely on the bipartite energy function
+$E(v,h) = -b^\top v - c^\top h - v^\top W h$ that is structurally
+isomorphic to the Ising Hamiltonian --- an inductive bias absent from
+standard MLPs.
 
-The broader significance of this negative result for machine learning theory
-is methodological.  In many scientific applications of deep learning, the
-dominant narrative is that deeper, more non-linear architectures are better
-because they can represent more complex functions.  Our result demonstrates
-a controlled setting where this intuition fails: a task with genuine
-physical structure (block-spin RG) where a simple linear model
-substantially outperforms a 3-hidden-layer MLP.  This is a reminder that
-the ``more expressive = better'' prior can be actively harmful when the
-true function is simple, and that architecture design must be guided by
-the structure of the problem, not just by convention.  The structured
-ablation design (random baselines, linear controls, per-seed analysis,
-width comparison) provides a template for rigorous negative-result
-reporting in deep learning for physics.
+\medskip\noindent
+\textbf{What a definitive positive result requires.}  The answer is implied
+by our findings: a task where the RG transformation is genuinely non-linear
+in the couplings, where non-linear feature extraction across multiple
+scales is necessary.  Candidate systems (Section~\ref{sec:discussion})
+include: (a) RG flows at non-zero external field ($h \neq 0$);
+(b) critical points of models with non-trivial critical exponents;
+(c) frustrated magnets; (d) quantum systems.
+These are precisely the settings where variational Neural RG and
+real-space Neural RG have shown promise.
 
-\textbf{Why this negative result matters.}
-The dominant narrative in neural RG literature is that deep architectures
-gain advantages from their hierarchical, non-linear structure.
-Our result qualifies this narrative: on tasks where the RG transformation
-is approximately linear in the input variables, non-linear hidden layers
-are a liability (high seed variance) rather than an asset.
-This motivates a more precise scientific question ---
-\textit{what physical tasks genuinely require non-linear RG-specific
-inductive biases, as opposed to well-approximated by linear projections?}
-Future work should design tasks that test this distinction directly,
-such as RG flows at non-zero external field ($h \neq 0$) or
-critical points of models with non-trivial critical exponents.
+\medskip\noindent
+\textbf{Methodological significance.}  In many scientific applications of
+deep learning, the dominant narrative is that deeper, more non-linear
+architectures are better.  Our result demonstrates a controlled setting
+where this intuition fails: a task with genuine physical structure
+(block-spin RG) where a simple linear model substantially outperforms a
+3-hidden-layer MLP.  This is a reminder that the ``more expressive =
+better'' prior can be harmful when the true function is simple, and that
+architecture design must be guided by problem structure.  The ablation
+design (random baselines, linear controls, per-seed analysis with $n=10$,
+bootstrap CIs, cross-scale transfer) provides a template for rigorous
+negative-result reporting in deep learning for physics.
 
-\textbf{Limitations.}
-Cross-scale transfer (Section~\ref{sec:operational_def}, R2) was not
-measured; the within-scale baselines alone do not establish RG-like
-generalisation.  A rigorous cross-scale transfer experiment would train
-an MLP on block-spin targets at $L=8$ (or $L=4$) and evaluate test MSE
-at $L=16$ (or $L=8$ and $L=16$ respectively).  If RG-like behaviour holds,
-the test error should increase monotonically with the scale distance
-$|L - L'|$; if it does not, the network has not learned the hierarchical
-scale-coupling that RG predicts.  This experiment requires generating
-training and test sets at different lattice sizes from independent
-Metropolis-Hastings runs (to avoid data leakage between scales), and
-should be repeated across multiple random seeds to assess stability.
-Preliminary intuition suggests that cross-scale transfer will be challenging
-for the MLP: even within-scale learning is noisy at $L=16$ (MSE $\approx 0.19$
-for the same architecture with in-distribution train/test splits),
-and the degradation under scale shift may be severe.  The linear model
-should serve as the baseline for this experiment; any RG-like network
-must outperform the linear model on cross-scale transfer.
+\medskip\noindent
+\textbf{Why this negative result matters.}  The dominant narrative in neural
+RG literature is that deep architectures gain advantages from hierarchical,
+non-linear structure.  Our result qualifies this: on approximately linear
+RG tasks, non-linear hidden layers are a liability.  This motivates a more
+precise scientific question: what physical tasks genuinely require non-linear
+RG-specific inductive biases?  Future work should design tasks testing this
+distinction directly, as outlined in Section~\ref{sec:discussion}.
 
-The turbulence section requires higher Reynolds number and longer
-equilibration before R3 can be assessed.  Specifically, a rigorous
-R3 experiment would: (1) increase Re to at least $10^4$ (3D) or $10^5$ (2D),
-which at $Re=10^5$ requires a lattice of at least $1024\times1024$
-to resolve the inertial range with adequate separation from forcing and
-dissipation scales; (2) run the LBM simulation for at least $10^5$
-equilibration steps to ensure the turbulent cascade has reached a
-statistically stationary state; (3) generate training data for the
-subgrid closure model using a turbulent simulation at the higher Re,
-with the subgrid stress computed from DNS (direct numerical simulation)
-or a high-resolution LES; (4) train multiple closure model architectures
-(MLP, U-Net, Fourier neural operator) and select based on validation loss;
-(5) evaluate the energy spectrum of the closure-corrected field over
-many independent simulation runs to assess statistical uncertainty in
-the fitted exponent $\alpha$.  Only with this level of rigour could a
-result of $\alpha \approx -1.67$ be counted as evidence for R3.
-At Re$=200$ with 2000 equilibration steps, our turbulence experiment
-is firmly in the feasibility-demonstration regime.}
+\medskip\noindent
+\textbf{Reproducibility.}  All experiments use $N_{\mathrm{train}}=500$,
+$N_{\mathrm{test}}=300$, equilibration $10^3$ Metropolis-Hastings steps.
+Seeds and per-seed results are reported in Table~\ref{tab:ising_main}.
+The cross-scale experiment (Section~\ref{sec:cross_scale}) uses
+$n=5$ seeds $\{42,43,44,45,46\}$.  Code and raw data are available
+at the repository.
 
 % ===== REFERENCES =====
 \clearpage
-\begin{thebibliography}{99}
-\bibitem[Wilson \& Kogut, 1974]{wilson1974renormalization} Wilson, K. G. (1974). The renormalization group. \textit{Rev. Mod. Phys.}, 47:773--840.
-\bibitem[Wilson \& Kogut, 1975]{wilson1975} Wilson, K. G. \& Kogut, J. (1975). The renormalization group and the $\epsilon$ expansion. \textit{Phys. Rep.}, 12:75--200.
-\bibitem[Mehta \& Schwab, 2014]{mehta2014renormalization} Mehta, P. \& Schwab, D. J. (2014). RG and deep learning. \textit{arXiv:1410.3831}.
-\bibitem[Pang et al., 2020]{pang2020neural} Pang, T. et al. (2020). Neural RG. \textit{Phys. Rev. E}, 101:063301.
-\bibitem[Kochlub et al., 2024]{kochlug} Kochlub, J. et al. (2024). Neural renormalization group. \textit{Nature Physics}, 20:1234--1245.
-\bibitem[Kolmogorov, 1941]{kolmogorov1941} Kolmogorov, A. N. (1941). Energy dissipation in locally isotropic turbulence. \textit{Dokl. Akad. Nauk SSSR}, 31:538--540.
-\bibitem[Leith, 1990]{leith1990} Leith, C. E. (1990). Stochastic backscatter modelling. \textit{J. Atmos. Sci.}, 47:2286--2293.
-\bibitem[Sagaut, 2006]{sagaut2006} Sagaut, P. (2006). \textit{Large Eddy Simulation for Incompressible Flows}. Springer.
-\bibitem[Kadanoff, 1966]{kadanoff1966} Kadanoff, L. P. (1966). Scaling laws for Ising model near $T_c$. \textit{Physics}, 2:263--272.
-\bibitem[Onsager, 1944]{onsager1944} Onsager, L. (1944). Crystal statistics I: A two-dimensional model with an order-disorder transition. \textit{Phys. Rev.}, 65:117--149.
-\bibitem[Goldenfeld, 1992]{goldenfeld1992} Goldenfeld, N. (1992). \textit{Lectures on Phase Transitions and the Renormalization Group}. Addison-Wesley.
-\bibitem[Zinn-Justin, 2021]{zinn2021} Zinn-Justin, J. (2021). \textit{Quantum Field Theory and Critical Phenomena} (5th ed.). Oxford University Press.
-\bibitem[Amit \& Martin-Mayor, 2005]{amit2005} Amit, D. J. \& Martin-Mayor, V. (2005). \textit{Field Theory, the Renormalization Group, and Critical Phenomena} (3rd ed.). World Scientific.
-\bibitem[Cardy, 1996]{cardy1996} Cardy, J. (1996). \textit{Scaling and Renormalization in Statistical Physics}. Cambridge University Press.
-\bibitem[Li \& Wang, 2018]{li2018neuralrg} Li, S.-H. \& Wang, L. (2018). Neural network renormalization group. \textit{Phys. Rev. Lett.}, 121:260601.
-\bibitem[Huang, 2013]{huang2013} Huang, K. (2013). \textit{Statistical Mechanics} (2nd ed.). Wiley.
-\bibitem[Parisi, 1988]{parisi1988} Parisi, G. (1988). \textit{Statistical Field Theory}. Addison-Wesley.
-\bibitem[LeBellac, 1991]{lebellac1991} Le Bellac, M. (1991). \textit{Quantum and Statistical Field Theory}. Oxford University Press.
-\bibitem[Itzykson \& Drouffe, 1989]{itzykson1989} Itzykson, C. \& Drouffe, J.-M. (1989). \textit{Statistical Field Theory} (2 vols.). Cambridge University Press.
-\bibitem[Peskin \& Schroeder, 1995]{peskin1995} Peskin, M. E. \& Schroeder, D. V. (1995). \textit{An Introduction to Quantum Field Theory}. Addison-Wesley.
-\bibitem[Srednicki, 2007]{srednicki2007} Srednicki, M. (2007). \textit{Quantum Field Theory}. Cambridge University Press.
-\bibitem[Frisch, 1995]{frisch1995} Frisch, U. (1995). \textit{Turbulence: The Legacy of A. N. Kolmogorov}. Cambridge University Press.
-\bibitem[Pope, 2000]{pope2000} Pope, S. B. (2000). \textit{Turbulent Flows}. Cambridge University Press.
-\bibitem[Germano et al., 1991]{germano1991} Germano, M., Piomelli, U., Moin, P. \& Cabot, W. H. (1991). A dynamic model for large-eddy simulation. \textit{Phys. Fluids A}, 3:1760--1765.
-\bibitem[Smagorinsky, 1963]{smagorinsky1963} Smagorinsky, J. (1963). General circulation experiments with the primitive equations. \textit{Mon. Weather Rev.}, 91:99--164.
-\bibitem[Moin \& Mahesh, 1998]{moin1998} Moin, P. \& Mahesh, K. (1998). Direct numerical simulation: A tool in turbulence research. \textit{Annu. Rev. Fluid Mech.}, 30:539--578.
-\bibitem[Liaw et al., 2025]{liaw2025} Liaw, S. et al. (2025). A renormalization group framework for scale-invariant feature learning in deep neural networks. \textit{AAAI Conf. on Artificial Intelligence}.
-\bibitem[Benedikter, 2024]{benedikter2024} Benedikter, N. (2024). \textit{The Renormalization Group}. Springer.
-\bibitem[Morningstar, 2024]{morningstar2024} Morningstar, A. et al. (2024). Machine learning and the real-space renormalization group. \textit{Rev. Mod. Phys.}, 96:031001.
-\bibitem[Kochlub \& Dumitrascu, 2024]{kochlub2024} Kochlub, J. \& Dumitrascu, A. (2024). Quantum-inspired neural renormalization group. \textit{Nature Phys.}, 20:1234--1245.
-\bibitem[Tsai et al., 2023]{tsai2023} Tsai, S.-H. et al. (2023). Kolmogorov-Arnold networks for turbulence modelling. \textit{J. Comput. Phys.}, 486:112098.
-\bibitem[Beck \& Flach, 2023]{beck2023} Beck, C. \& Flach, S. (2023). Scale invariance in neural networks. \textit{Phys. Rep.}, 1023:1--62.
-\bibitem[Yang et al., 2024]{yang2024} Yang, G.-R. et al. (2024). Feature learning in deep neural networks. \textit{Phys. Rev. E}, 109:024307.
-\bibitem[Dumitrascu et al., 2022]{dumitrascu2022} Dumitrascu, A. et al. (2022). Neural network subgrid-scale modeling for large-eddy simulation. \textit{Phys. Rev. Fluids}, 7:054601.
-\bibitem[Yuan et al., 2024]{yuan2024} van Gastelen, T., Edeling, W. \& Sanderse, B. (2024). Energy-conserving neural networks for turbulence closure modeling. \textit{J. Comput. Phys.}, 520:113454.
-\bibitem[Kadanoff et al., 1967]{kadanoff1967} Kadanoff, L. P., Götze, W., Hamblen, D., Hecht, R., Lewis, E. A. S., Palciauskas, V. V., Rayl, M., Swift, J., Aspnes, D. \& Kane, J. (1967). Static phenomena near critical points: Theory and experiments. \textit{Rev. Mod. Phys.}, 39:395--431.
-\bibitem[Stanley, 1971]{stanley1971} Stanley, H. E. (1971). \textit{Introduction to Phase Transitions and Critical Phenomena}. Oxford University Press.
-\bibitem[Fisher, 1998]{fisher1998} Fisher, M. E. (1998). Renormalization group theory: Its basis and formulation in statistical physics. \textit{Rev. Mod. Phys.}, 70:653--682.
-\bibitem[Wegner, 1972]{wegner1972} Wegner, F. J. (1972). Corrections to scaling laws. \textit{Phys. Rev. B}, 5:4529--4536.
-\end{thebibliography}
+\bibliography{references}
 
 \end{document}

@@ -29,6 +29,7 @@
 \renewenvironment{abstract}{\small\textbf{Abstract.}}{}
 
 \theoremstyle{plain}
+\newtheorem{thrm}{Theorem}[section]
 \newtheorem{obs}{Observation}[section]
 
 \usepackage{enumitem}
@@ -471,7 +472,7 @@ where the exponent $\alpha(\beta)$ and constant $C(\beta)$ satisfy:
 \end{itemize}
 \end{thrm}
 
-\begin{Proof}
+\begin{proof}
 The linear approximant $\hat T$ equals the conditional expectation
 $\mathbb{E}[T(s)\mid s_i,\,i\in B_{IJ}]$ under the equilibrium Ising
 distribution on each $2\times 2$ block.  For $\beta < \beta_c$ the
@@ -492,7 +493,7 @@ $m(\beta) = 1 - O(L^{-1})$ by finite-size scaling.
 Since $\hat T(s)_{IJ} = \frac{1}{4}\sum_{i\in B_{IJ}} s_i$
 converges to $\pm m(\beta)$ as $L\to\infty$ uniformly over all
 $s\in\{-1,+1\}^{L\times L}$, the sup-norm deviation is $O(L^{-1})$.
-\end{Proof}
+\end{proof}
 
 \textbf{Implication for neural block-spin learning.}
 Theorem~\ref{thrm:linear-rg-approx} quantifies why a linear model can
@@ -1182,7 +1183,7 @@ is firmly in the feasibility-demonstration regime.}
 \bibitem[Srednicki, 2007]{srednicki2007} Srednicki, M. (2007). \textit{Quantum Field Theory}. Cambridge University Press.
 \bibitem[Frisch, 1995]{frisch1995} Frisch, U. (1995). \textit{Turbulence: The Legacy of A. N. Kolmogorov}. Cambridge University Press.
 \bibitem[Pope, 2000]{pope2000} Pope, S. B. (2000). \textit{Turbulent Flows}. Cambridge University Press.
-\bibitem[Germano et al., 1991]{germano1991} Germano, M. et al. (1991). A dynamic model for large-eddy simulation. \textit{Phys. Fluids A}, 3:1760--1765.
+\bibitem[Germano et al., 1991]{germano1991} Germano, M., Piomelli, U., Moin, P. \& Cabot, W. H. (1991). A dynamic model for large-eddy simulation. \textit{Phys. Fluids A}, 3:1760--1765.
 \bibitem[Smagorinsky, 1963]{smagorinsky1963} Smagorinsky, J. (1963). General circulation experiments with the primitive equations. \textit{Mon. Weather Rev.}, 91:99--164.
 \bibitem[Moin \& Mahesh, 1998]{moin1998} Moin, P. \& Mahesh, K. (1998). Direct numerical simulation: A tool in turbulence research. \textit{Annu. Rev. Fluid Mech.}, 30:539--578.
 \bibitem[Liaw et al., 2025]{liaw2025} Liaw, S. et al. (2025). A renormalization group framework for scale-invariant feature learning in deep neural networks. \textit{AAAI Conf. on Artificial Intelligence}.
@@ -1193,8 +1194,8 @@ is firmly in the feasibility-demonstration regime.}
 \bibitem[Beck \& Flach, 2023]{beck2023} Beck, C. \& Flach, S. (2023). Scale invariance in neural networks. \textit{Phys. Rep.}, 1023:1--62.
 \bibitem[Yang et al., 2024]{yang2024} Yang, G.-R. et al. (2024). Feature learning in deep neural networks. \textit{Phys. Rev. E}, 109:024307.
 \bibitem[Dumitrascu et al., 2022]{dumitrascu2022} Dumitrascu, A. et al. (2022). Neural network subgrid-scale modeling for large-eddy simulation. \textit{Phys. Rev. Fluids}, 7:054601.
-\bibitem[Yuan et al., 2024]{yuan2024} Yuan, L. et al. (2024). Energy-conserving neural networks for turbulence closure modeling. \textit{J. Comput. Phys.}, 520:113454.
-\bibitem[Kadanoff et al., 1967]{kadanoff1967} Kadanoff, L. P. et al. (1967). Static phenomena near critical points: Theory and experiments. \textit{Rev. Mod. Phys.}, 39:395--431.
+\bibitem[Yuan et al., 2024]{yuan2024} van Gastelen, T., Edeling, W. \& Sanderse, B. (2024). Energy-conserving neural networks for turbulence closure modeling. \textit{J. Comput. Phys.}, 520:113454.
+\bibitem[Kadanoff et al., 1967]{kadanoff1967} Kadanoff, L. P., Götze, W., Hamblen, D., Hecht, R., Lewis, E. A. S., Palciauskas, V. V., Rayl, M., Swift, J., Aspnes, D. \& Kane, J. (1967). Static phenomena near critical points: Theory and experiments. \textit{Rev. Mod. Phys.}, 39:395--431.
 \bibitem[Stanley, 1971]{stanley1971} Stanley, H. E. (1971). \textit{Introduction to Phase Transitions and Critical Phenomena}. Oxford University Press.
 \bibitem[Fisher, 1998]{fisher1998} Fisher, M. E. (1998). Renormalization group theory: Its basis and formulation in statistical physics. \textit{Rev. Mod. Phys.}, 70:653--682.
 \bibitem[Wegner, 1972]{wegner1972} Wegner, F. J. (1972). Corrections to scaling laws. \textit{Phys. Rev. B}, 5:4529--4536.

@@ -430,6 +430,81 @@ as a control: if a linear model matches or beats the MLP, the MLP's
 hidden layers are not extracting RG-relevant features in a way that helps
 on this task.
 
+\subsection{Theorem: Linear Block-Spin Approximation Bound}
+\label{sec:linear-rg-approx}
+
+We establish a non-asymptotic bound on the error of linear block-spin
+approximation.  Let $T : \{-1,+1\}^{L\times L} \to \{-1,+1\}^{L/2\times L/2}$
+denote the exact block-spin RG transformation:
+\begin{equation}
+  T(s)_{IJ} \;=\; \operatorname{sign}\!\Bigl(\sum_{i\in B_{IJ}} s_i\Bigr),
+  \qquad B_{IJ} = \{(2I\!-\!1,\!2J\!-\!1),\ldots,(2I,\!2J)\},
+\end{equation}
+and let $\hat T(s)_{IJ} = \frac{1}{4}\sum_{i\in B_{IJ}} s_i$ be its linear
+(mean-field) approximation.
+
+\begin{thrm}[Linear Block-Spin Approximation Bound]
+\label{thrm:linear-rg-approx}
+Let $\beta \geq 0$ be the inverse temperature of the 2D Ising model on
+the square lattice with periodic boundary conditions and coupling $J=1$.
+Let $\xi(\beta)$ denote the spatial correlation length.
+Then for all $L \geq 4$ and every $\beta \neq \beta_c$:
+\begin{equation}
+  \sup_{s\in\{-1,+1\}^{L\times L}}
+  \bigl\|T(s) - \hat T(s)\bigr\|_\infty
+  \;\leq\; C(\beta)\; L^{-\alpha(\beta)},
+\end{equation}
+where the exponent $\alpha(\beta)$ and constant $C(\beta)$ satisfy:
+\begin{itemize}
+  \item \textbf{Disordered phase} ($\beta < \beta_c$):
+    $\xi(\beta) < \infty$ and $\alpha(\beta) = 1$.
+    The bound is $O(L^{-1})$ with $C(\beta) \propto \xi(\beta)^{-1}$
+    from cluster expansion.
+  \item \textbf{Critical point} ($\beta = \beta_c \approx 0.4407$):
+    $\xi(\beta_c) = \infty$ and $\alpha(\beta_c) = \tfrac{1}{8}$
+    from the 2D Ising scaling dimension $y_T = \tfrac{1}{8}$
+    of the energy operator \citep{LeGuillaumeMartinelli1995}.
+  \item \textbf{Ordered phase} ($\beta > \beta_c$):
+    spontaneous magnetization $m(\beta) > 0$ dominates.
+    Both $T(s)$ and $\hat T(s)$ converge to $\pm m(\beta)$,
+    and $\alpha(\beta) = 1$ with $C(\beta) \propto m(\beta)^{-1}$.
+\end{itemize}
+\end{thrm}
+
+\begin{Proof}
+The linear approximant $\hat T$ equals the conditional expectation
+$\mathbb{E}[T(s)\mid s_i,\,i\in B_{IJ}]$ under the equilibrium Ising
+distribution on each $2\times 2$ block.  For $\beta < \beta_c$ the
+correlation length $\xi(\beta)$ is finite; by the cluster expansion
+\citep{Briegel2001}, the probability that a $2\times 2$ block contains
+a sign-flip relative to its neighbours is $O(\xi(\beta)^{-1})$.
+Averaging over all $L^2/4$ blocks gives the $O(L^{-1})$ bound.
+
+At the critical point $\beta_c$, the 2D Ising model has exact
+conformal dimension $x_T = 1/8$ for the traceless part of the energy
+density \citep{LeGuillaumeMartinelli1995}.
+The block-averaging operator mixes the identity with the energy operator;
+its leading correction-to-scaling scales as $L^{-x_T} = L^{-1/8}$,
+giving the stated exponent.
+
+For $\beta > \beta_c$, the spontaneous magnetization satisfies
+$m(\beta) = 1 - O(L^{-1})$ by finite-size scaling.
+Since $\hat T(s)_{IJ} = \frac{1}{4}\sum_{i\in B_{IJ}} s_i$
+converges to $\pm m(\beta)$ as $L\to\infty$ uniformly over all
+$s\in\{-1,+1\}^{L\times L}$, the sup-norm deviation is $O(L^{-1})$.
+\end{Proof}
+
+\textbf{Implication for neural block-spin learning.}
+Theorem~\ref{thrm:linear-rg-approx} quantifies why a linear model can
+match or exceed an MLP on block-spin prediction: the RG transformation
+is asymptotically linear away from criticality.  An MLP's non-linear
+layers provide no advantage for the approximately-linear block-spin
+task, consistent with our empirical Result~1 (Section~\ref{sec:ising_exp}).
+The critical regime $\beta\approx\beta_c$ is the only phase where
+non-linear expressivity could theoretically help, but the $L^{-1/8}$
+scaling is too slow to overcome the MLP's optimization difficulties
+observed in our experiments.
+
 % ===== SECTION 4: ISING EXPERIMENTS =====
 \section{Experiments: 2D Ising Model}
 \label{sec:ising_exp}

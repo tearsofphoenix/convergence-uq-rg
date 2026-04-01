@@ -1,22 +1,15 @@
 """
-Topic 3: RG × Neural Network Experiments (PyTorch)
-====================================================
-PyTorch reimplementation of neural_rg.py for Intel Mac Mini.
+Topic 3 RG Benchmark: MLP vs Linear Comparison
+================================================
+Trains FlatMLP, LinearModel, CNNBlockSpin, RGInformedMLP at each (L, beta).
+Computes per-model statistics and MLP vs Linear statistical comparisons.
 
-Generates:
-  1. spectral_radius_vs_beta.png   — spectral radius ρ vs β (critical point signature)
-  2. scale_transfer.png            — scale transferability: MSE ratio vs RG distance
-  3. fixed_point_convergence.png   — fixed-point iteration: |S_k| trajectory
-  4. kolmogorov_spectrum.png      — turbulence: energy spectrum E(k) vs k
-
-Key findings for paper:
-  - Spectral radius peaks at β_c = 0.4407 (Onsager critical point)
-  - Scale transfer error increases with RG flow distance
-  - NN iteration converges at criticality, diverges off-critical
-  - Turbulence closure reproduces k^{-5/3} Kolmogorov spectrum
+Outputs:
+  outputs/rg_bench/rg_statistics.json  — all statistical results
+  outputs/rg_bench/figures/           — comparison plots
 """
 from __future__ import annotations
-import sys, os, json, time
+import sys, os, json, time, itertools
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -26,13 +19,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
-import matplotlib
-matplotlib.use("Agg")
-import matplotlib.pyplot as plt
 from scipy import stats
-
-torch.manual_seed(42)
-np.random.seed(42)
 
 OUT_DIR = Path("/Users/isaacliu/workspace/convergence-uq-rg/outputs/rg_bench")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -40,594 +27,498 @@ FIG_DIR = OUT_DIR / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
 
 
-# ============================================================
-# Neural Network as RG Block (PyTorch)
-# ============================================================
-class NNAsRGBlock(nn.Module):
-    """
-    MLP that learns block-spin RG transformation.
-    Input:  flattened spin config [L*L]
-    Output: flattened coarse-grained config [L/2 * L/2]
-    """
-    def __init__(self, L: int, hidden: int = 256):
+# ─── Models (flattened output) ────────────────────────────────────────────────
+
+class FlatMLP(nn.Module):
+    """MLP with fixed input dim (256) and output dim (64)."""
+    def __init__(self, L_in: int = 256, L_out: int = 64, hidden: int = 256):
         super().__init__()
-        self.L = L
-        self.new_L = L // 2
-        self.encoder = nn.Sequential(
-            nn.Linear(L * L, hidden),
+        self.net = nn.Sequential(
+            nn.Linear(L_in, hidden),
             nn.GELU(),
             nn.Linear(hidden, hidden),
             nn.GELU(),
-        )
-        self.rg_transform = nn.Sequential(
             nn.Linear(hidden, hidden // 2),
             nn.GELU(),
-            nn.Linear(hidden // 2, hidden // 4),
+            nn.Linear(hidden // 2, L_out),
+        )
+    def forward(self, x):
+        # x: [B, 256]
+        return torch.tanh(self.net(x))
+
+
+class LinearModel(nn.Module):
+    """Linear model with fixed dimensions."""
+    def __init__(self, L_in: int = 256, L_out: int = 64):
+        super().__init__()
+        self.linear = nn.Linear(L_in, L_out)
+    def forward(self, x):
+        return torch.tanh(self.linear(x))
+
+
+class CNNBlockSpin(nn.Module):
+    """CNN: L×L → L/2×L/2 block-spin. Works for any power-of-2 L ≥ 4.
+    Output is flattened [B, (L/2)^2].
+    """
+    def __init__(self, L: int = 16):
+        super().__init__()
+        self.L = L
+        new_L = L // 2
+        ch = max(8, L * 2)
+        self.block_conv = nn.Conv2d(1, ch, kernel_size=2, stride=2)
+        self.net = nn.Sequential(
+            nn.GELU(),
+            nn.Conv2d(ch, ch * 2, kernel_size=3, padding=1),
+            nn.GELU(),
+            nn.Conv2d(ch * 2, 1, kernel_size=1),
+        )
+    def forward(self, x):
+        # x can be [B, L*L] (flattened) or [B, L, L] (2D)
+        if x.dim() == 2:
+            L = int(np.sqrt(x.shape[1]))
+            x = x.reshape(x.shape[0], L, L)
+        h = x.unsqueeze(1)
+        h = self.block_conv(h)
+        h = self.net(h)
+        out = h.squeeze(1)
+        # Flatten to [B, (L/2)^2]
+        return torch.tanh(out.reshape(x.shape[0], -1))
+
+
+class RGInformedMLP(nn.Module):
+    """MLP with block-average initialization. Output flattened [B, (L/2)^2].
+    FIXED: output is now flattened instead of 2D.
+    """
+    def __init__(self, L: int = 16, hidden: int = 256):
+        super().__init__()
+        self.L = L
+        new_L = L // 2
+        w_init = torch.zeros(hidden, L * L)
+        for h in range(hidden):
+            for bi in range(new_L):
+                for bj in range(new_L):
+                    k = (bi * new_L + bj) % hidden
+                    for di in range(2):
+                        for dj in range(2):
+                            gi = (bi * 2 + di) % L
+                            gj = (bj * 2 + dj) % L
+                            w_init[h, gi * L + gj] = 0.25
+        self.encoder = nn.Linear(L * L, hidden)
+        with torch.no_grad():
+            self.encoder.weight.copy_(w_init * 4.0)
+            self.encoder.bias.zero_()
+        self.rg_transform = nn.Sequential(
+            nn.GELU(),
+            nn.Linear(hidden, hidden // 2),
             nn.GELU(),
         )
-        self.decoder = nn.Sequential(
-            nn.Linear(hidden // 4, self.new_L * self.new_L),
-        )
+        self.decoder = nn.Sequential(nn.Linear(hidden // 2, new_L * new_L))
+    def forward(self, x):
+        # x: [B, L*L]
+        if x.dim() == 3:
+            batch = x.shape[0]
+            x = x.reshape(batch, -1)
+        else:
+            batch = x.shape[0]
+        h = self.rg_transform(self.encoder(x))
+        # Flattened output [B, (L/2)^2] instead of 2D
+        return torch.tanh(self.decoder(h).reshape(batch, -1))
 
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
-        batch = x.shape[0]
-        h = self.encoder(x.reshape(batch, -1))
-        h = self.rg_transform(h)
-        out = self.decoder(h)
-        return torch.tanh(out.reshape(batch, self.new_L, self.new_L))
 
+# ─── Dataset ──────────────────────────────────────────────────────────────────
 
 class SpinDataset(Dataset):
     def __init__(self, fine_configs, coarse_configs):
         self.fine = torch.from_numpy(fine_configs.astype(np.float32))
         self.coarse = torch.from_numpy(coarse_configs.astype(np.float32))
-
     def __len__(self):
         return len(self.fine)
-
     def __getitem__(self, idx):
-        return self.fine[idx].reshape(-1), self.coarse[idx].reshape(-1)
+        return self.fine[idx], self.coarse[idx]
 
 
-def train_nn_as_rg_block(L: int, beta: float, n_samples: int = 500,
-                          epochs: int = 200, batch_size: int = 32,
-                          hidden: int = 256, device: str = "cpu") -> tuple:
-    """
-    Train NN to learn block-spin RG transformation at given β.
-    Returns: trained model, train_mse, test_mse
-    """
-    torch.manual_seed(42)
-    np.random.seed(42)
+# ─── Training ─────────────────────────────────────────────────────────────────
 
-    # Generate paired data
-    ising = IsingModel(IsingConfig(L=L, beta=beta, h=0.0, J=1.0))
-    ising.equilibriate(1000)
+def train_and_eval(model_cls, beta, n_train, n_test, epochs, batch_size,
+                   seed, device, L_data, L_target, model_L_in, model_L_out):
+    """Train model_cls at given beta. Returns (train_mse, test_mse)."""
+    torch.manual_seed(seed)
+    np.random.seed(seed)
 
     rg = BlockSpinRG(block_size=2)
-    fine_list, coarse_list = [], []
-    for _ in range(n_samples + 200):
-        ising.metropolis_step(ising.state)
-        fine_list.append(ising.state.copy())
-        coarse_list.append(rg.block_spin_transform(ising.state.copy()))
 
-    fine_all = np.array(fine_list)
-    coarse_all = np.array(coarse_list)
-    fine_train, coarse_train = fine_all[:n_samples], coarse_all[:n_samples]
-    fine_test, coarse_test = fine_all[n_samples:], coarse_all[n_samples:]
+    # Generate training data
+    ising = IsingModel(IsingConfig(L=L_data, beta=beta, h=0.0, J=1.0))
+    ising.equilibriate(1000)
+    fine_train, coarse_train = [], []
+
+    for i in range(n_train + 200):
+        ising.metropolis_step(ising.state)
+        fine = ising.state.copy()
+        fine_train.append(fine.flatten())
+        coarse = rg.block_spin_transform(fine.copy())
+        coarse_train.append(coarse.flatten())
+    fine_train = np.array(fine_train[:n_train])
+    coarse_train = np.array(coarse_train[:n_train])
+
+    # Generate test data at L_target scale
+    ising_test = IsingModel(IsingConfig(L=L_target, beta=beta, h=0.0, J=1.0))
+    ising_test.equilibriate(1000)
+    fine_test, coarse_test = [], []
+    for _ in range(n_test + 100):
+        ising_test.metropolis_step(ising_test.state)
+        fine = ising_test.state.copy()
+        coarse = rg.block_spin_transform(fine.copy())
+        fine_test.append(fine.flatten())
+        coarse_test.append(coarse.flatten())
+    fine_test = np.array(fine_test[:n_test])
+    coarse_test = np.array(coarse_test[:n_test])
+
+    # Instantiate model
+    if model_cls == "MLP":
+        model = FlatMLP(L_in=model_L_in, L_out=model_L_out)
+    elif model_cls == "Linear":
+        model = LinearModel(L_in=model_L_in, L_out=model_L_out)
+    elif model_cls == "CNN":
+        L_model = int(np.sqrt(model_L_in))
+        model = CNNBlockSpin(L=L_model)
+    elif model_cls == "RGMLP":
+        L_model = int(np.sqrt(model_L_in))
+        model = RGInformedMLP(L=L_model)
+    else:
+        raise ValueError(model_cls)
+    model = model.to(device)
 
     train_ds = SpinDataset(fine_train, coarse_train)
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
 
-    model = NNAsRGBlock(L, hidden).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
     criterion = nn.MSELoss()
 
-    model.train()
     for epoch in range(epochs):
-        epoch_loss = 0.0
-        for x_batch, y_batch in train_loader:
-            x_batch = x_batch.to(device)
-            y_batch = y_batch.to(device)
+        model.train()
+        for x_b, y_b in train_loader:
+            x_b, y_b = x_b.to(device), y_b.to(device)
             optimizer.zero_grad()
-            pred = model(x_batch)  # [B, new_L, new_L]
-            pred_flat = pred.reshape(pred.size(0), -1)  # [B, new_L*new_L]
-            y_batch_flat = y_batch.reshape(y_batch.size(0), -1)  # force flatten
-            loss = criterion(pred_flat, y_batch_flat)
+            pred = model(x_b)  # pred is [B, model_L_out] flattened
+            loss = criterion(pred, y_b)
             loss.backward()
             optimizer.step()
-            epoch_loss += loss.item()
-        if epoch % 50 == 0:
-            print(f"    epoch {epoch}: train_MSE={epoch_loss/len(train_loader):.6f}")
 
     # Evaluate
     model.eval()
-    coarse_train_t = torch.from_numpy(coarse_train.astype(np.float32))
-    coarse_test_t = torch.from_numpy(coarse_test.astype(np.float32))
     with torch.no_grad():
-        pred_train = model(torch.from_numpy(fine_train.astype(np.float32)).to(device))
-        pred_train_flat = pred_train.reshape(pred_train.size(0), -1)
-        coarse_train_flat = coarse_train_t.reshape(coarse_train_t.size(0), -1).to(device)
-        train_mse = criterion(pred_train_flat, coarse_train_flat).item()
-        pred_test = model(torch.from_numpy(fine_test.astype(np.float32)).to(device))
-        pred_test_flat = pred_test.reshape(pred_test.size(0), -1)
-        coarse_test_flat = coarse_test_t.reshape(coarse_test_t.size(0), -1).to(device)
-        test_mse = criterion(pred_test_flat, coarse_test_flat).item()
+        fine_t = torch.from_numpy(fine_test.astype(np.float32)).to(device)
+        coarse_t = torch.from_numpy(coarse_test.astype(np.float32)).to(device)
+        pred_test = model(fine_t)
+        test_mse = criterion(pred_test, coarse_t).item()
 
-    return model, train_mse, test_mse
+        fine_t_train = torch.from_numpy(fine_train.astype(np.float32)).to(device)
+        coarse_t_train = torch.from_numpy(coarse_train.astype(np.float32)).to(device)
+        pred_train = model(fine_t_train)
+        train_mse = criterion(pred_train, coarse_t_train).item()
 
-
-# ============================================================
-# Spectral Radius Measurement
-# ============================================================
-def measure_spectral_radius(model: nn.Module) -> float:
-    """Compute spectral radius of the RG-transform weight matrix."""
-    # RG transform is the first linear layer after encoder
-    for name, module in model.named_modules():
-        if "rg_transform" in name and isinstance(module, nn.Linear):
-            w = module.weight.detach().cpu().numpy()
-            # Spectral radius = max singular value
-            s = np.linalg.svd(w, compute_uv=False)
-            return float(np.max(np.abs(s)))
-    # Fallback: use first encoder linear layer
-    for name, module in model.named_modules():
-        if "encoder" in name and isinstance(module, nn.Sequential):
-            first_linear = module[0]
-            if isinstance(first_linear, nn.Linear):
-                w = first_linear.weight.detach().cpu().numpy()
-                s = np.linalg.svd(w, compute_uv=False)
-                return float(np.max(np.abs(s)))
-    return 1.0
+    return float(train_mse), float(test_mse)
 
 
-def run_spectral_radius_experiment(L: int = 16) -> dict:
-    """Measure spectral radius vs β to detect critical point."""
-    print("\n=== Spectral Radius vs β Experiment ===")
-    betas = np.array([0.30, 0.35, 0.40, 0.42, 0.4407, 0.46, 0.48, 0.50, 0.55, 0.60])
-    beta_c = np.log(1 + np.sqrt(2)) / 2
-    print(f"  L={L}, β_c(Onsager)={beta_c:.4f}")
+# ─── Statistical tests ────────────────────────────────────────────────────────
 
-    results = []
-    for beta in betas:
-        print(f"\n  β={beta:.4f} (Δ={abs(beta-beta_c)/beta_c:.1%} from β_c)...")
-        model, train_mse, test_mse = train_nn_as_rg_block(L, beta, n_samples=300, epochs=150)
-        rho = measure_spectral_radius(model)
-        results.append({
-            "beta": float(beta),
-            "rho": rho,
-            "train_mse": train_mse,
-            "test_mse": test_mse,
-            "near_critical": abs(beta - beta_c) < 0.02,
-        })
-        print(f"    ρ={rho:.4f}, test_MSE={test_mse:.5f}")
-
-    # Plot
-    betas_arr = np.array([r["beta"] for r in results])
-    rhos = np.array([r["rho"] for r in results])
-    test_mses = np.array([r["test_mse"] for r in results])
-
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
-
-    # Left: spectral radius vs β
-    ax = axes[0]
-    ax.axvline(beta_c, color="red", linestyle="--", lw=1.5, label=f"β_c={beta_c:.4f}")
-    ax.plot(betas_arr, rhos, "bo-", ms=8, lw=2)
-    ax.set_xlabel("β (inverse temperature)")
-    ax.set_ylabel("Spectral radius ρ")
-    ax.set_title("RG-Transform Weight Spectral Radius vs β")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-
-    # Right: test MSE vs β
-    ax = axes[1]
-    ax.axvline(beta_c, color="red", linestyle="--", lw=1.5, label=f"β_c={beta_c:.4f}")
-    ax.plot(betas_arr, test_mses, "go-", ms=8, lw=2)
-    ax.set_xlabel("β (inverse temperature)")
-    ax.set_ylabel("Test MSE")
-    ax.set_title("NN Block-Spin Learning Error vs β")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-
-    plt.suptitle(f"Critical Point Detection: 2D Ising L={L}", fontweight="bold")
-    plt.tight_layout()
-    out = FIG_DIR / "spectral_radius_vs_beta.png"
-    plt.savefig(out, dpi=150, bbox_inches="tight")
-    plt.close()
-    print(f"  Saved {out}")
-
-    # Key finding
-    rho_at_critical = [r["rho"] for r in results if abs(r["beta"] - beta_c) < 0.02][0]
-    rho_away = [r["rho"] for r in results if abs(r["beta"] - 0.30) < 0.02][0]
-    print(f"\n  KEY: ρ(β_c)={rho_at_critical:.4f}, ρ(β=0.30)={rho_away:.4f}")
-    print(f"  Peak at critical point: {rho_at_critical > rho_away}")
-
-    return {"results": results, "beta_c": float(beta_c)}
+def welch_ttest(g1, g2):
+    t, p = stats.ttest_ind(g1, g2, equal_var=False)
+    return float(t), float(p)
 
 
-# ============================================================
-# Scale Transferability Experiment
-# ============================================================
-def run_scale_transfer_experiment(L: int = 16) -> dict:
-    """
-    Test scale transfer: train separate models at different β distances from β_c.
-    RG theory predicts that NN learns the block-spin transformation best
-    near β_c where the RG fixed point governs the physics.
-    Training at off-critical β → poor generalization to critical regime.
-    """
-    print("\n=== Scale Transferability Experiment ===")
-    beta_c = np.log(1 + np.sqrt(2)) / 2
+def mann_whitney_u(g1, g2):
+    stat, p = stats.mannwhitneyu(g1, g2, alternative='two-sided')
+    return float(stat), float(p)
 
-    # Train models at different β
-    results = []
-    models = {}  # store trained models by beta
-    betas = [0.30, beta_c, 0.60]
-    labels = ["off-critical (β=0.30)", "critical (β_c)", "off-critical (β=0.60)"]
 
-    for beta, label in zip(betas, labels):
-        print(f"\n  Training at {label}...", flush=True)
-        model, train_mse, test_mse = train_nn_as_rg_block(
-            L, beta, n_samples=500, epochs=200
-        )
-        print(f"    Train MSE: {train_mse:.5f}, Test MSE: {test_mse:.5f}")
-        models[beta] = model
-        results.append({
-            "beta": beta,
-            "label": label,
-            "train_mse": train_mse,
-            "test_mse": test_mse,
-            "near_critical": abs(beta - beta_c) < 0.02,
-        })
+def cohens_d(g1, g2):
+    n1, n2 = len(g1), len(g2)
+    s1, s2 = np.var(g1, ddof=1), np.var(g2, ddof=1)
+    pooled = np.sqrt(((n1-1)*s1 + (n2-1)*s2) / (n1+n2-2))
+    return float((np.mean(g1) - np.mean(g2)) / pooled) if pooled > 1e-10 else 0.0
 
-    # Now evaluate each model AT the critical point (β_c)
-    # This tests: does the NN trained near β_c generalize better to critical physics?
-    print("\n  Evaluating all models at β_c (generalization test)...")
-    ising_at_crit = IsingModel(IsingConfig(L=L, beta=beta_c, h=0.0, J=1.0))
-    ising_at_crit.equilibriate(1000)
-    rg = BlockSpinRG(block_size=2)
 
-    fine_at_crit, coarse_at_crit = [], []
-    for _ in range(300 + 100):
-        ising_at_crit.metropolis_step(ising_at_crit.state)
-        fine_at_crit.append(ising_at_crit.state.copy())
-        coarse_at_crit.append(rg.block_spin_transform(ising_at_crit.state.copy()))
+def permutation_test(g1, g2, n_perm=10000):
+    """Two-sided permutation test. Returns (p_value, observed_diff)."""
+    obs = np.mean(g1) - np.mean(g2)
+    combined = np.concatenate([g1, g2])
+    n1 = len(g1)
+    cnt = 0
+    for _ in range(n_perm):
+        np.random.shuffle(combined)
+        perm_diff = np.mean(combined[:n1]) - np.mean(combined[n1:])
+        # Two-sided: count extreme in either direction
+        if abs(perm_diff) >= abs(obs):
+            cnt += 1
+    return float(cnt / n_perm), float(obs)
 
-    fine_at_crit = np.array(fine_at_crit[100:])
-    coarse_at_crit = np.array(coarse_at_crit[100:])
-    fine_t = torch.from_numpy(fine_at_crit.astype(np.float32))
-    coarse_t = torch.from_numpy(coarse_at_crit.astype(np.float32))
-    criterion = nn.MSELoss()
 
-    transfer_results = []
-    for r, (beta, label) in zip(results, zip(betas, labels)):
-        model = models[beta]
-        model.eval()
-        with torch.no_grad():
-            pred = model(fine_t).reshape(fine_t.size(0), -1)
-            coarse_flat = coarse_t.reshape(coarse_t.size(0), -1)
-            mse_at_crit = criterion(pred, coarse_flat).to("cpu").item()
-        ratio = mse_at_crit / (r["test_mse"] + 1e-10)
-        print(f"  {label} model → at β_c: MSE={mse_at_crit:.5f}")
-        transfer_results.append({
-            "beta": beta,
-            "label": label,
-            "mse_at_crit": mse_at_crit,
-            "mse_ratio": ratio,
-        })
+def bootstrap_ci(data, stat=np.mean, n_boot=10000, ci=0.95):
+    """Percentile bootstrap CI for given statistic."""
+    vals = [stat(np.random.choice(data, size=len(data), replace=True)) for _ in range(n_boot)]
+    a = (1 - ci) / 2
+    return float(np.percentile(vals, a * 100)), float(np.percentile(vals, (1 - a) * 100))
 
-    # Plot
-    fig, axes = plt.subplots(1, 2, figsize=(12, 4))
 
-    # Left: MSE at critical point for models trained at different β
-    ax = axes[0]
-    x_labels = [f"β={b:.2f}" for b in betas]
-    mses = [t["mse_at_crit"] for t in transfer_results]
-    colors = ["coral", "steelblue", "coral"]
-    bars = ax.bar(x_labels, mses, color=colors, alpha=0.8)
-    ax.set_ylabel("MSE at β_c (generalization error)")
-    ax.set_title("Scale Transfer: Training β → Evaluation at β_c")
-    for bar, val in zip(bars, mses):
-        ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + 0.005,
-               f"{val:.3f}", ha="center", va="bottom", fontsize=10)
-    ax.axhline(mses[1], color="steelblue", linestyle="--", lw=1, label="Critical model baseline")
-    ax.legend()
-    ax.grid(True, alpha=0.3, axis="y")
-
-    # Right: MSE ratio (generalization gap)
-    ax = axes[1]
-    ratios = [t["mse_ratio"] for t in transfer_results]
-    ax.bar(x_labels, ratios, color=colors, alpha=0.8)
-    ax.set_ylabel("MSE ratio (vs training MSE)")
-    ax.set_title("Generalization Gap: Off-Critical Models Fail at β_c")
-    ax.axhline(1.0, color="gray", linestyle="--", lw=1, label="No generalization gap")
-    for i, (label, val) in enumerate(zip(x_labels, ratios)):
-        ax.text(i, val + 0.05, f"{val:.1f}×", ha="center", va="bottom", fontsize=10)
-    ax.legend()
-    ax.grid(True, alpha=0.3, axis="y")
-
-    plt.suptitle(f"Scale Transfer: NN Block-Spin Generalization (L={L})", fontweight="bold")
-    plt.tight_layout()
-    out = FIG_DIR / "scale_transfer.png"
-    plt.savefig(out, dpi=150, bbox_inches="tight")
-    plt.close()
-    print(f"  Saved {out}")
-
+def compute_per_model_stats(scores):
+    """Compute mean, std, median, bootstrap CI, min, max for a list of scores."""
+    scores = np.array(scores)
+    lo, hi = bootstrap_ci(scores)
     return {
-        "training_L": L,
-        "beta_c": float(beta_c),
-        "transfer": transfer_results,
+        "mean": float(np.mean(scores)),
+        "std": float(np.std(scores, ddof=1)),
+        "median": float(np.median(scores)),
+        "ci_95": (lo, hi),
+        "min": float(np.min(scores)),
+        "max": float(np.max(scores)),
+        "n": len(scores),
     }
 
 
-# ============================================================
-# Fixed Point Convergence
-# ============================================================
-def run_fixed_point_experiment(L: int = 16) -> dict:
-    """
-    Fixed point test: compare NN block-spin output with true block-spin (majority rule).
-    At the RG fixed point, the NN should approximate the exact block-spin transformation.
-    Measures: MSE(NN_block_spin vs true_block_spin) at different β.
-    """
-    print("\n=== Fixed Point Convergence Experiment ===")
-    beta_c = np.log(1 + np.sqrt(2)) / 2
+# ─── Main experiment ──────────────────────────────────────────────────────────
 
-    rg = BlockSpinRG(block_size=2)
-    trajectories = {}
-
-    for beta, label in [(beta_c, "at_critical"), (0.30, "off_critical"), (0.60, "ordered")]:
-        print(f"\n  β={beta:.4f} ({label})...")
-        model, _, _ = train_nn_as_rg_block(L, beta, n_samples=500, epochs=200)
-        model.eval()
-
-        ising = IsingModel(IsingConfig(L=L, beta=beta, h=0.0, J=1.0))
-        ising.equilibriate(1000)
-
-        # Generate test configs and compare NN vs true block spin
-        nn_mags = []
-        true_mags = []
-        for _ in range(200):
-            ising.metropolis_step(ising.state)
-            state = ising.state.copy()
-
-            # True block spin (majority rule)
-            true_block = rg.block_spin_transform(state)
-
-            # NN block spin
-            with torch.no_grad():
-                x = torch.from_numpy(state.astype(np.float32)).reshape(1, -1)
-                nn_block = model(x).numpy().reshape(model.new_L, model.new_L)
-
-            nn_mags.append(float(np.abs(nn_block.mean())))
-            true_mags.append(float(np.abs(true_block.mean())))
-
-        nn_mags = np.array(nn_mags)
-        true_mags = np.array(true_mags)
-        mse = float(np.mean((nn_mags - true_mags) ** 2))
-        corr = float(np.corrcoef(nn_mags, true_mags)[0, 1])
-        outcome = "CONVERGED" if mse < 0.1 else "NOT CONVERGED"
-        print(f"    MSE(NN vs true block spin)={mse:.5f}, corr={corr:.4f} [{outcome}]")
-
-        trajectories[label] = {
-            "beta": beta,
-            "nn_mags": nn_mags.tolist(),
-            "true_mags": true_mags.tolist(),
-            "mse": mse,
-            "correlation": corr,
-            "nn_mean_mag": float(np.mean(nn_mags)),
-            "true_mean_mag": float(np.mean(true_mags)),
-        }
-
-    # Plot: NN vs true block spin magnetization scatter
-    fig, axes = plt.subplots(1, 3, figsize=(15, 4))
-    for i, (label, traj) in enumerate(trajectories.items()):
-        ax = axes[i]
-        ax.scatter(traj["true_mags"], traj["nn_mags"], alpha=0.4, s=10)
-        # Perfect agreement line
-        vmin, vmax = 0, 1
-        ax.plot([vmin, vmax], [vmin, vmax], "r--", lw=1.5, label="y=x")
-        ax.set_xlabel("True block spin |⟨S⟩|")
-        ax.set_ylabel("NN block spin |⟨S⟩|")
-        ax.set_title(f"β={traj['beta']:.2f} ({label})\nMSE={traj['mse']:.4f}, r={traj['correlation']:.3f}")
-        ax.set_xlim(0, 1)
-        ax.set_ylim(0, 1)
-        ax.grid(True, alpha=0.3)
-        ax.legend()
-
-    plt.suptitle("Fixed Point: NN Block-Spin vs True Block-Spin (Majority Rule)", fontweight="bold")
-    plt.tight_layout()
-    out = FIG_DIR / "fixed_point_convergence.png"
-    plt.savefig(out, dpi=150, bbox_inches="tight")
-    plt.close()
-    print(f"  Saved {out}")
-
-    return trajectories
-
-
-# ============================================================
-# Kolmogorov Turbulence Spectrum
-# ============================================================
-def run_turbulence_experiment(grid_size: int = 64, reynolds: float = 200.0) -> dict:
-    """Generate turbulence velocity field and compute Kolmogorov spectrum."""
-    print("\n=== Kolmogorov Turbulence Spectrum ===")
-    print(f"  Grid={grid_size}×{grid_size}, Re={reynolds}")
-
-    # Use the LBM solver from topic2_uq
-    sys.path.insert(0, str(Path(__file__).parent.parent))
-    try:
-        from topic2_uq.pde_solvers import NavierStokes2DSolver
-    except Exception as e:
-        print(f"  WARNING: Could not import NavierStokes2DSolver: {e}")
-        return {"error": str(e)}
-
-    # Generate velocity field
-    X, y = NavierStokes2DSolver.generate_data(
-        1, grid_size=grid_size, reynolds=reynolds, seed=42
-    )
-    ux = y[0, 0].numpy()
-    uy = y[0, 1].numpy()
-
-    # Compute kinetic energy spectrum E(k)
-    # 2D Fourier transform of velocity
-    N = grid_size
-    # Kinetic energy = 0.5 * (ux^2 + uy^2)
-    ke = 0.5 * (ux**2 + uy**2)
-
-    # 2D FFT
-    ke_fft = np.fft.fft2(ke)
-    ke_shell = np.abs(np.fft.fftshift(ke_fft))**2
-
-    # Radial shell averaging
-    kx = np.fft.fftfreq(N, d=1.0/N)
-    ky = np.fft.fftfreq(N, d=1.0/N)
-    KX, KY = np.meshgrid(kx, ky)
-    k_radius = np.sqrt(KX**2 + KY**2).flatten()
-    ke_shell_flat = ke_shell.flatten()
-
-    # Bin by wavenumber
-    k_max = np.max(k_radius)
-    n_bins = min(30, N // 2)
-    bin_edges = np.linspace(0.5, k_max * 0.7, n_bins + 1)
-    k_centers = 0.5 * (bin_edges[:-1] + bin_edges[1:])
-    E_of_k = np.zeros(n_bins)
-
-    for i in range(n_bins):
-        in_bin = (k_radius >= bin_edges[i]) & (k_radius < bin_edges[i+1])
-        if in_bin.sum() > 0:
-            E_of_k[i] = np.mean(ke_shell_flat[in_bin])
-
-    # Only keep non-zero bins
-    valid = E_of_k > 0
-    k_valid = k_centers[valid]
-    E_valid = E_of_k[valid]
-
-    # Fit power law E(k) ∝ k^{-α}
-    log_k = np.log(k_valid + 1e-10)
-    log_E = np.log(E_valid + 1e-10)
-    slope, intercept = np.polyfit(log_k, log_E, 1)
-    alpha = -slope
-
-    print(f"  Power law fit: E(k) ∝ k^{slope:.2f} (theoretical: -5/3 ≈ -1.67)")
-    print(f"  Inertial range: k ∈ [{k_valid[3]:.1f}, {k_valid[-3]:.1f}]")
-
-    # Kolmogorov reference line
-    k_ref = np.linspace(k_valid[3], k_valid[-3], 50)
-    E_ref = np.exp(intercept) * k_ref**slope
-
-    # Plot
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
-
-    # Log-log spectrum
-    ax = axes[0]
-    ax.loglog(k_valid, E_valid, "bo-", ms=6, lw=1.5, label="Computed spectrum")
-    ax.loglog(k_ref, E_ref, "r--", lw=2, label=f"E(k) ∝ k^{slope:.2f}")
-    ax.axline((1, np.exp(intercept)), slope=slope, color="gray", linestyle=":", lw=1)
-    ax.set_xlabel("Wavenumber k")
-    ax.set_ylabel("Energy E(k)")
-    ax.set_title("Kinetic Energy Spectrum — 2D Navier-Stokes (Re=200)")
-    ax.legend()
-    ax.grid(True, alpha=0.3, which="both")
-
-    # Linear scale (zoomed inertial range)
-    ax = axes[1]
-    ax.plot(k_valid, E_valid, "bo-", ms=6, lw=1.5, label="Computed")
-    ax.plot(k_ref, E_ref, "r--", lw=2, label=f"E(k) ∝ k^{slope:.2f}")
-    # Mark inertial range
-    ax.fill_between(k_ref, E_ref * 0.8, E_ref * 1.2, alpha=0.1, color="red", label="Inertial range")
-    ax.set_xlabel("Wavenumber k")
-    ax.set_ylabel("Energy E(k)")
-    ax.set_title("Linear Scale (Inertial Range)")
-    ax.legend()
-    ax.grid(True, alpha=0.3)
-
-    plt.suptitle(f"Kolmogorov Spectrum: Re={reynolds}, Grid={grid_size}×{grid_size}", fontweight="bold")
-    plt.tight_layout()
-    out = FIG_DIR / "kolmogorov_spectrum.png"
-    plt.savefig(out, dpi=150, bbox_inches="tight")
-    plt.close()
-    print(f"  Saved {out}")
-
-    return {
-        "alpha": float(alpha),
-        "k_range": [float(k_valid[3]), float(k_valid[-3])],
-        "spectral_slope": float(slope),
-    }
-
-
-# ============================================================
-# Main
-# ============================================================
-def main():
+def run_rg_benchmark(n_seeds=10, n_train=500, n_test=300,
+                     epochs=200, batch_size=32):
+    print("\n" + "=" * 70)
+    print("  RG BENCHMARK: MLP vs Linear Comparison")
+    print(f"  {n_seeds} seeds, N_train={n_train}, epochs={epochs}")
     print("=" * 70)
-    print("  RG × Neural Network Experiments")
-    print("  Device: CPU (Intel Mac Mini 2018)")
-    print("=" * 70)
+
+    device = "cpu"
+    betas = [0.30, 0.4407, 0.60]
+    beta_labels = {0.30: "disordered", 0.4407: "critical", 0.60: "ordered"}
+    L_values = [4, 8, 16]
+    model_types = ["MLP", "Linear", "CNN", "RGMLP"]
+
+    seeds = list(range(42, 42 + n_seeds))
+    results = []
+
+    # ── Run all (L, beta, model, seed) combinations ────────────────────────────
+    configs = []
+    for L in L_values:
+        for beta in betas:
+            for model in model_types:
+                for seed in seeds:
+                    configs.append({
+                        "L": L, "beta": beta, "model": model, "seed": seed,
+                        "L_data": L, "L_target": L,
+                        "model_L_in": L * L, "model_L_out": (L // 2) * (L // 2),
+                    })
 
     t0 = time.time()
+    total = len(configs)
+    print(f"\n  Total configurations: {total}")
 
-    # 1. Spectral radius vs β
-    print("\n[Experiment 1] Spectral Radius vs β")
-    sr_results = run_spectral_radius_experiment(L=16)
+    for i, cfg in enumerate(configs):
+        if (i + 1) % 40 == 1 or i == total - 1:
+            elapsed = time.time() - t0
+            rate = (i + 1) / elapsed if elapsed > 0 else 0
+            eta = (total - i - 1) / rate if rate > 0 else 0
+            print(f"  Progress: {i+1}/{total} ({100*(i+1)/total:.1f}%) "
+                  f"elapsed={elapsed:.0f}s  eta={eta:.0f}s", flush=True)
 
-    # 2. Scale transferability
-    print("\n[Experiment 2] Scale Transferability")
-    st_results = run_scale_transfer_experiment(L=16)
+        train_mse, test_mse = train_and_eval(
+            model_cls=cfg["model"], beta=cfg["beta"],
+            n_train=n_train, n_test=n_test,
+            epochs=epochs, batch_size=batch_size,
+            seed=cfg["seed"], device=device,
+            L_data=cfg["L_data"], L_target=cfg["L_target"],
+            model_L_in=cfg["model_L_in"], model_L_out=cfg["model_L_out"],
+        )
+        results.append({
+            "L": cfg["L"], "beta": cfg["beta"], "model": cfg["model"],
+            "seed": cfg["seed"], "train_mse": train_mse, "test_mse": test_mse,
+        })
 
-    # 3. Fixed point convergence
-    print("\n[Experiment 3] Fixed Point Convergence")
-    fp_results = run_fixed_point_experiment(L=16)
+    elapsed_total = time.time() - t0
+    print(f"\n  Total: {len(results)} runs in {elapsed_total:.0f}s "
+          f"({elapsed_total/len(results):.2f}s/run)")
 
-    # 4. Kolmogorov spectrum
-    print("\n[Experiment 4] Kolmogorov Turbulence Spectrum")
-    turb_results = run_turbulence_experiment(grid_size=64, reynolds=200.0)
+    # ── Save raw results ─────────────────────────────────────────────────────
+    import csv
+    df_path = OUT_DIR / "rg_raw.csv"
+    with open(df_path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=results[0].keys())
+        writer.writeheader()
+        writer.writerows(results)
+    print(f"  Saved: {df_path}")
 
-    # Save all results
-    all_results = {
-        "spectral_radius": sr_results,
-        "scale_transfer": st_results,
-        "fixed_point": fp_results,
-        "turbulence": turb_results,
-        "wall_time_s": time.time() - t0,
+    # ── Statistical analysis ─────────────────────────────────────────────────
+    print("\n  === STATISTICAL ANALYSIS ===")
+    stat_results = {}
+
+    import pandas as pd
+    df = pd.DataFrame(results)
+
+    # Per-model stats: for each (L, beta, model) compute descriptive stats
+    for L in L_values:
+        for beta in betas:
+            for model in model_types:
+                grp = df[(df["L"] == L) & (df["beta"] == beta) &
+                         (df["model"] == model)]["test_mse"]
+                if len(grp) >= 2:
+                    key = f"L={L}_beta={beta:.4f}_{model}"
+                    stat_results[key] = {
+                        "L": L, "beta": beta, "model": model,
+                        **compute_per_model_stats(grp.values),
+                    }
+
+    # MLP vs Linear comparison at each (L, beta)
+    print("\n  MLP vs Linear comparisons:")
+    for L in L_values:
+        for beta in betas:
+            mlp_scores = df[(df["L"] == L) & (df["beta"] == beta) &
+                            (df["model"] == "MLP")]["test_mse"].values
+            lin_scores = df[(df["L"] == L) & (df["beta"] == beta) &
+                            (df["model"] == "Linear")]["test_mse"].values
+
+            if len(mlp_scores) >= 2 and len(lin_scores) >= 2:
+                t_stat, t_pval = welch_ttest(mlp_scores, lin_scores)
+                u_stat, u_pval = mann_whitney_u(mlp_scores, lin_scores)
+                perm_p, obs_diff = permutation_test(mlp_scores, lin_scores, n_perm=10000)
+                d = cohens_d(mlp_scores, lin_scores)
+
+                key = f"L={L}_beta={beta:.4f}_MLPvsLinear"
+                stat_results[key] = {
+                    "L": L, "beta": beta,
+                    "MLP_mean": float(np.mean(mlp_scores)),
+                    "MLP_std": float(np.std(mlp_scores, ddof=1)),
+                    "MLP_median": float(np.median(mlp_scores)),
+                    "MLP_ci_95": bootstrap_ci(mlp_scores),
+                    "Linear_mean": float(np.mean(lin_scores)),
+                    "Linear_std": float(np.std(lin_scores, ddof=1)),
+                    "Linear_median": float(np.median(lin_scores)),
+                    "Linear_ci_95": bootstrap_ci(lin_scores),
+                    "Welch_t": t_stat, "Welch_p": t_pval,
+                    "MannWhitney_U": u_stat, "MannWhitney_p": u_pval,
+                    "Permutation_p": perm_p, "Permutation_n_perm": 10000,
+                    "Cohens_d": d,
+                    "obs_diff_MLP_minus_Linear": obs_diff,
+                    "n_MLP": len(mlp_scores), "n_Linear": len(lin_scores),
+                }
+
+                print(f"\n  L={L}, β={beta:.4f} ({beta_labels[beta]}):")
+                print(f"    MLP   : {np.mean(mlp_scores):.4f} ± {np.std(mlp_scores,ddof=1):.4f} "
+                      f"[median={np.median(mlp_scores):.4f}]")
+                print(f"    Linear: {np.mean(lin_scores):.4f} ± {np.std(lin_scores,ddof=1):.4f} "
+                      f"[median={np.median(lin_scores):.4f}]")
+                print(f"    Welch t={t_stat:.3f}, p={t_pval:.4f}")
+                print(f"    Mann-Wh U={u_stat:.1f}, p={u_pval:.4f}")
+                print(f"    Permutation p={perm_p:.4f} (n_perm=10000), Cohen d={d:.3f}")
+
+    # ── Save statistics JSON ─────────────────────────────────────────────────
+    stats_path = OUT_DIR / "rg_statistics.json"
+    with open(stats_path, "w") as f:
+        json.dump(stat_results, f, indent=2, default=str)
+    print(f"\n  Saved: {stats_path}")
+
+    # ── Figures ──────────────────────────────────────────────────────────────
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+
+        # Figure 1: Bar chart comparing all models at each beta for L=16
+        fig, axes = plt.subplots(1, 3, figsize=(15, 5))
+        for col, beta in enumerate(betas):
+            ax = axes[col]
+            means, stds, labels = [], [], []
+            for model in model_types:
+                grp = df[(df["L"] == 16) & (df["beta"] == beta) &
+                         (df["model"] == model)]["test_mse"]
+                if len(grp) > 0:
+                    means.append(grp.mean())
+                    stds.append(grp.std(ddof=1))
+                    labels.append(model)
+            colors = ["steelblue", "coral", "forestgreen", "gold"]
+            bars = ax.bar(labels, means, yerr=stds, capsize=5, color=colors[:len(means)], alpha=0.8)
+            ax.set_ylabel("Test MSE")
+            ax.set_title(f"β={beta:.4f} ({beta_labels[beta]})")
+            ax.grid(True, alpha=0.3, axis="y")
+            for bar, m, s in zip(bars, means, stds):
+                ax.text(bar.get_x() + bar.get_width()/2, bar.get_height() + s + 0.02,
+                        f"{m:.3f}", ha="center", va="bottom", fontsize=9)
+        plt.suptitle("L=16: Model Comparison by Temperature (10 seeds)", fontweight="bold")
+        plt.tight_layout()
+        plt.savefig(FIG_DIR / "model_comparison_L16.png", dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"  Saved: {FIG_DIR}/model_comparison_L16.png")
+
+        # Figure 2: MLP vs Linear comparison heatmap
+        for model_pair in ["MLP", "Linear"]:
+            fig, ax = plt.subplots(figsize=(8, 6))
+            matrix = np.full((len(L_values), len(betas)), np.nan)
+            for i, L in enumerate(L_values):
+                for j, beta in enumerate(betas):
+                    grp = df[(df["L"] == L) & (df["beta"] == beta) &
+                             (df["model"] == model_pair)]["test_mse"]
+                    if len(grp) > 0:
+                        matrix[i, j] = grp.mean()
+            im = ax.imshow(matrix, cmap="YlOrRd", aspect="auto")
+            ax.set_xticks(range(len(betas)))
+            ax.set_xticklabels([f"β={b:.2f}" for b in betas])
+            ax.set_yticks(range(len(L_values)))
+            ax.set_yticklabels([f"L={L}" for L in L_values])
+            ax.set_xlabel("Temperature")
+            ax.set_ylabel("Lattice size")
+            ax.set_title(f"{model_pair}: Test MSE Heatmap")
+            plt.colorbar(im, ax=ax)
+            for i in range(len(L_values)):
+                for j in range(len(betas)):
+                    if not np.isnan(matrix[i, j]):
+                        ax.text(j, i, f"{matrix[i,j]:.3f}",
+                                ha="center", va="center", fontsize=10)
+            plt.tight_layout()
+            plt.savefig(FIG_DIR / f"heatmap_{model_pair}.png", dpi=150, bbox_inches="tight")
+            plt.close()
+            print(f"  Saved: {FIG_DIR}/heatmap_{model_pair}.png")
+
+        # Figure 3: MLP vs Linear effect size (Cohen's d) across conditions
+        fig, ax = plt.subplots(figsize=(8, 6))
+        d_matrix = np.full((len(L_values), len(betas)), np.nan)
+        for i, L in enumerate(L_values):
+            for j, beta in enumerate(betas):
+                key = f"L={L}_beta={beta:.4f}_MLPvsLinear"
+                if key in stat_results:
+                    d_matrix[i, j] = stat_results[key]["Cohens_d"]
+        im = ax.imshow(d_matrix, cmap="RdBu_r", aspect="auto", vmin=-2, vmax=2)
+        ax.set_xticks(range(len(betas)))
+        ax.set_xticklabels([f"β={b:.2f}" for b in betas])
+        ax.set_yticks(range(len(L_values)))
+        ax.set_yticklabels([f"L={L}" for L in L_values])
+        ax.set_xlabel("Temperature")
+        ax.set_ylabel("Lattice size")
+        ax.set_title("Cohen's d: MLP vs Linear (positive=MLP better)")
+        plt.colorbar(im, ax=ax)
+        for i in range(len(L_values)):
+            for j in range(len(betas)):
+                if not np.isnan(d_matrix[i, j]):
+                    ax.text(j, i, f"{d_matrix[i,j]:.2f}",
+                            ha="center", va="center", fontsize=10)
+        plt.tight_layout()
+        plt.savefig(FIG_DIR / "cohens_d_heatmap.png", dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"  Saved: {FIG_DIR}/cohens_d_heatmap.png")
+
+    except Exception as e:
+        print(f"\n  WARNING: Figure generation failed: {e}")
+        import traceback; traceback.print_exc()
+
+    summary = {
+        "n_seeds": n_seeds, "n_runs": len(results),
+        "wall_time_s": elapsed_total,
+        "L_values": L_values, "betas": betas, "models": model_types,
     }
-
-    out_path = OUT_DIR / "rg_results.json"
-    with open(out_path, "w") as f:
-        json.dump(all_results, f, indent=2, default=str)
-    print(f"\nResults saved to {out_path}")
-
-    # Print summary
-    print("\n" + "=" * 70)
-    print("  SUMMARY OF FINDINGS")
-    print("=" * 70)
-    print(f"\n1. Spectral Radius at Critical Point:")
-    sr_res = sr_results["results"]
-    rho_c = [r["rho"] for r in sr_res if abs(r["beta"] - sr_results["beta_c"]) < 0.02]
-    rho_away = [r["rho"] for r in sr_res if abs(r["beta"] - 0.30) < 0.02]
-    if rho_c and rho_away:
-        print(f"   ρ(β_c={sr_results['beta_c']:.4f})={rho_c[0]:.4f}")
-        print(f"   ρ(β=0.30)={rho_away[0]:.4f}")
-        print(f"   Peak at critical point: {'YES ✓' if rho_c[0] > rho_away[0] else 'NO ✗'}")
-
-    print(f"\n2. Scale Transferability (NN trained L=16):")
-    for t in st_results["transfer"]:
-        if not np.isnan(t["mse_ratio"]):
-            print(f"   {t['scale']}: MSE_ratio={t['mse_ratio']:.1f}× ({t['rg_steps']} RG steps away)")
-
-    print(f"\n3. Fixed Point Convergence:")
-    for label, traj in fp_results.items():
-        outcome = "CONVERGED ✓" if traj["final_stability"] < 0.05 else "NOT CONVERGED ✗"
-        print(f"   β={traj['beta']:.4f}: {outcome} (Δ={traj['final_stability']:.4f})")
-
-    print(f"\n4. Kolmogorov Spectrum:")
-    if "error" not in turb_results:
-        print(f"   Fitted slope: E(k) ∝ k^{turb_results['spectral_slope']:.2f}")
-        print(f"   Theory: k^{5/3} ≈ k^{-1.67}")
-        diff = abs(turb_results["spectral_slope"] - (-5/3))
-        match = "GOOD ✓" if diff < 0.5 else f"OFF by {diff:.2f}"
-        print(f"   Match with Kolmogorov: {match}")
-    else:
-        print(f"   ERROR: {turb_results['error']}")
-
-    print(f"\nTotal time: {time.time()-t0:.1f}s")
-    print(f"Outputs in {OUT_DIR}")
+    return df, stat_results, summary
 
 
 if __name__ == "__main__":
-    main()
+    t0 = time.time()
+    df, stats, summary = run_rg_benchmark(n_seeds=10)
+    elapsed = time.time() - t0
+    print(f"\n{'='*70}")
+    print(f"  COMPLETE in {elapsed:.0f}s ({elapsed/3600:.2f}h)")
+    print(f"  Statistics saved to: {OUT_DIR / 'rg_statistics.json'}")
+    print(f"{'='*70}")

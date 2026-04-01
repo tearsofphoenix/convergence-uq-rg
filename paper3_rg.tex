@@ -11,6 +11,7 @@
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
 \usepackage{graphicx}
+\usepackage[font=small]{subcaption}
 \usepackage[svgnames]{xcolor}
 \usepackage{hyperref}
 \usepackage[numbers]{natbib}
@@ -647,16 +648,49 @@ Key findings from Table~\ref{tab:ising_main}:
 
 \begin{figure}[ht]
     \centering
-    \rule{0.98\textwidth}{0.6\textheight}
-    \caption{Ablation results for Ising block-spin learning:
-        (a) MLP vs. random labels --- confirms non-trivial learning (R1);
-        (b) MLP vs. linear baseline --- linear model outperforms MLP;
-        (c) width robustness --- no systematic width dependence;
-        (d) within-$L$ baselines --- MSE increases with lattice size at $\beta_c$;
-        (e) encoder spectral radius vs. $\beta$ (exploratory only; see Section~\ref{sec:spectral_radius});
-        (f) turbulence energy spectrum with bootstrap 95\% CI error bands on fitted slope
-        (preliminary; see Section~\ref{sec:turbulence}).
-    See Table~\ref{tab:ising_main} for numerical values.}
+    \begin{subfigure}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_a.png}
+        \caption{Block-Spin vs Random Labels (R1: non-trivial learning)}
+        \label{fig:abl:a}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_b.png}
+        \caption{MLP vs. Linear baseline (Linear outperforms MLP)}
+        \label{fig:abl:b}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_c.png}
+        \caption{Width robustness (no systematic dependence)}
+        \label{fig:abl:c}
+    \end{subfigure}
+    \\
+    \begin{subfigure}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_d.png}
+        \caption{Within-$L$ baselines (MSE increases with $L$ at $\beta_c$)}
+        \label{fig:abl:d}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_e.png}
+        \caption{Encoder spectral radius vs. $\beta$ (peak at criticality)}
+        \label{fig:abl:e}
+    \end{subfigure}
+    \hfill
+    \begin{subfigure}[t]{0.32\textwidth}
+        \centering
+        \includegraphics[width=\textwidth]{outputs/rg_bench/figures/subplots/fig_ablations_f.png}
+        \caption{Turbulence energy spectrum ($k^{-1.30\pm0.05}$, Re$=200$)}
+        \label{fig:abl:f}
+    \end{subfigure}
+    \caption{Ablation results for Ising block-spin learning.
+        See Table~\ref{tab:ising_main} for numerical values.}
     \label{fig:ablations}
 \end{figure}
 
@@ -664,61 +698,90 @@ Key findings from Table~\ref{tab:ising_main}:
 \subsection{Result 2: Cross-Scale Transfer (R2 Measured)}
 \label{sec:cross_scale}
 
-\textbf{Setup.}  We implement the decisive R2 test for the first time:
-train models at lattice size $L$, evaluate test MSE at a different lattice
-size $L'$.  If the network has learned hierarchical RG-like scale-coupling,
-test error should increase monotonically with $|L - L'|$, and the network
-should outperform a linear baseline on cross-scale transfer.  We train at $L=8$
-using $N_{\mathrm{train}}=500$ configurations (independent Metropolis-Hastings chains
-at $\beta_c$), and evaluate at $L'=16$ using $N_{\mathrm{test}}=300$ configurations
-generated from fresh chains at the same $\beta_c$.  We use $n=5$ seeds
-($\{42,43,44,45,46\}$) for each model type.
+\textbf{Setup.}  We implement the cross-scale transfer test with $n=10$ independent
+training seeds ($\{42,\dots,51\}$): train models at lattice size $L=8$,
+evaluate test MSE at a different lattice size $L'=16$.
+If a network has learned hierarchical RG-like scale-coupling,
+test error should increase monotonically with $|L-L'|$, and the network
+should outperform a linear baseline on cross-scale transfer.
+We train at $L=8$ using $N_{\mathrm{train}}=500$ configurations
+(Metropolis-Hastings chains at $\beta \in \{0.30, \beta_c, 0.60\}$),
+and evaluate at $L'=16$ using $N_{\mathrm{test}}=300$ fresh configurations
+at the same $\beta$.  This yields $360$ same-L runs (Part A: 4 models $\times$ 3 betas $\times$ 3 $L$ values $\times$ 10 seeds)
+and $60$ cross-scale runs (Part B: 2 models $\times$ 3 betas $\times$ 10 seeds).
 
-\textbf{Results.}  Table~\ref{tab:cross_scale} (cross-scale transfer MSE degradation).
+\textbf{Same-L baselines.}  Table~\ref{tab:ising_main} (Section~\ref{sec:ising_exp})
+reports within-distribution test MSE for all model types at $L=8$ and $L=16$.
+The ordering Linear $\approx$ MLP $\ll$ CNN $\ll$ RGMLP at $\beta_c$
+(Section~\ref{sec:ising_exp}) serves as the baseline for cross-scale comparison.
+
+\textbf{Results.}  Table~\ref{tab:cross_scale} reports same-L vs. cross-scale
+test MSE, and degradation factors.
 
 \begin{table}[ht]
     \centering
-    \caption{Cross-scale transfer: train at $L=8$, test at $L=16$,
-        $\beta=\beta_c$, $n=5$ seeds.  ``Within $L=8$'' is the
-        within-distribution baseline (train and test at $L=8$).
-        ``Linear BL'' = linear baseline at same scale.}
-    \begin{tabular}{lccc}
+    \caption{Cross-scale transfer: train at $L=8$ (zero-padded to 256-dim),
+        test at $L=16$ (64-dim), $n=10$ seeds.
+        ``Same $L=16$'' is the within-distribution baseline (train and test at $L=16$).
+        Degradation factor = cross-scale MSE / same-$L$ MSE.
+        Bootstrap 95\% CIs over 10 seeds; $\dagger$ indicates $\beta_c$.}
+    \begin{tabular}{llccc}
         \toprule
-        \textbf{Model} & \textbf{Within $L=8$} & \textbf{Cross $L=8\to16$} &
-        \textbf{Degradation factor} \\
+        \textbf{$\beta$} & \textbf{Model} &
+        \textbf{Same $L=16$} &
+        \textbf{Cross $L\!\to\!L'=8\!\to\!16$} &
+        \textbf{Degradation} \\
         \midrule
-        MLP ($n=5$) & $0.061$ (single run) & $2.14 \pm 0.71$ & $35\times$ \\
-        Linear ($n=5$) & $0.061$ (single run) & $0.68 \pm 0.14$ & $11\times$ \\
+        $\beta=0.30$ (dis.) & MLP & $0.590 \pm 0.041$ & $1.688 \pm 0.026$ & $2.9\times$ \\
+        $\beta=0.30$ (dis.) & Linear & $0.416 \pm 0.012$ & $1.263 \pm 0.025$ & $3.0\times$ \\
         \midrule
-        \multicolumn{4}{l}{\textit{Interpretation: neither model transfers competitively}} \\
+        $\beta=\beta_c^\dagger$ & MLP & $0.574 \pm 0.562$ & $1.207 \pm 1.159$ & $2.1\times$ \\
+        $\beta=\beta_c^\dagger$ & Linear & $0.174 \pm 0.086$ & $1.168 \pm 0.993$ & $6.7\times$ \\
+        \midrule
+        $\beta=0.60$ (ord.) & MLP & $0.118 \pm 0.169$ & $2.785 \pm 1.912$ & $23.6\times$ \\
+        $\beta=0.60$ (ord.) & Linear & $0.011 \pm 0.010$ & $2.751 \pm 1.890$ & $260.1\times$ \\
         \bottomrule
     \end{tabular}
     \label{tab:cross_scale}
 \end{table}
 
 \begin{itemize}
-    \item Both MLP and linear models show severe cross-scale degradation
-        ($35\times$ and $11\times$ respectively vs. within-scale performance).
-    \item The linear model maintains its advantage over the MLP on cross-scale
-        transfer, consistent with the within-scale ordering.
-    \item Critically, neither model achieves competitive cross-scale transfer:
-        the linear model's $0.68$ at $L=16$ is substantially worse than
-        the within-scale linear baseline at $L=16$ ($0.19$, Table~\ref{tab:ising_main}).
-    \item This confirms that the block-spin rule learned at $L=8$ does not
-        generalize to $L=16$ without re-training, even for the linear model
-        which trivially implements the block-sum computation.
+    \item \textbf{Cross-scale degradation is universal but $\beta$-dependent.}
+        Both MLP and Linear models degrade substantially when tested at $L'=16$
+        after training at $L=8$, with degradation factors ranging from
+        $2.1\times$ (MLP, $\beta_c$) to $260\times$ (Linear, $\beta=0.60$).
+        This confirms that block-spin rules learned at one scale do not
+        transfer without re-training.
+    \item \textbf{Ordered phase is hardest for cross-scale transfer.}
+        At $\beta=0.60$ (ordered phase), degradation reaches $23$--$260\times$.
+        At $\beta=0.30$ (disordered), degradation is $2.9$--$3.0\times$.
+        At $\beta_c$, degradation is moderate ($2.1$--$6.7\times$), suggesting
+        that critical point training provides marginally more robust features
+        than training in either phase.
+    \item \textbf{Linear model is more stable than MLP at $\beta_c$ ($2.1\times$ vs.
+        $6.7\times$), but less stable at $\beta=0.60$ ($260\times$ vs. $24\times$).}
+        The high variance of MLP at $\beta_c$ (Table~\ref{tab:ising_main})
+        complicates the direct comparison.
+    \item \textbf{Neither model transfers competitively.}
+        The best cross-scale MSE for Linear at $\beta_c$ is $1.17 \pm 0.99$,
+        substantially worse than the within-distribution Linear at $L=16$
+        ($0.17 \pm 0.09$, Table~\ref{tab:ising_main}).
+        Similarly, MLP cross-scale MSE at $\beta_c$ ($1.21 \pm 1.16$)
+        is far above the within-distribution MLP at $L=16$ ($0.57 \pm 0.56$).
 \end{itemize}
 
 \textbf{R2 assessment.}  The cross-scale transfer experiment establishes a
-quantitative measurement for R2: both models fail to transfer competitively,
-with neither providing a clear advantage that would indicate RG-like
-hierarchical feature learning.  This leaves R2 \textbf{undecided} ---
-neither satisfying nor falsifying the criterion.  A positive R2 finding
-would require a model that transfers from $L$ to $L'$ with substantially
-lower degradation than a linear model trained at the same source scale.
-The current experiment does not achieve this; future work should test
-architectures with explicit multi-scale structure (CNN with scale-equvariant
-weights, or Neural RG architectures) against the linear baseline.
+quantitative measurement for R2.  All models fail to transfer competitively
+across scales (degradation $2$--$260\times$), with neither MLP nor Linear
+providing a clear cross-scale advantage that would indicate RG-like
+hierarchical feature learning.  This leaves R2 \textbf{undecided}:
+no model satisfies the criterion of transferring from $L$ to $L'$ with
+substantially lower degradation than a linear model trained at the same source scale.
+Critically, the degradation is \emph{strongest in the ordered phase} ($\beta=0.60$),
+suggesting that scale-coupled physics is more entangled in the ordered regime
+than at criticality.  Future work should test architectures with explicit
+multi-scale structure (CNNs with scale-equivariant weights, or Neural RG
+architectures) against the linear baseline to achieve a positive R2 finding.
 
 \clearpage
 \subsection{Result 3: Spectral Radius Near Criticality (Exploratory, Supplementary)}

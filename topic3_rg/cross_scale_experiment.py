@@ -332,7 +332,13 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
     seeds = list(range(42, 42 + n_seeds))
     results = []
 
-    # ══ Part A: Same-L experiments ══════════════════════════════════════════
+    import csv
+
+    # ── Checkpoint resume logic ──────────────────────────────────────────────
+    ckpt_a = OUT_DIR / "cross_scale_partA.csv"
+    ckpt_b = OUT_DIR / "cross_scale_partB.csv"
+
+    # ── Part A: Same-L experiments ══════════════════════════════════════════
     print("\n[Part A] Same-L within-scale baselines")
     print("  Models: MLP, Linear, CNN, RGMLP")
     print("  L ∈ {4,8,16}, β ∈ {0.30, βc, 0.60}, 10 seeds each")
@@ -348,12 +354,30 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
                         "beta": beta, "model": model, "seed": seed,
                     })
 
-    t0 = time.time()
     total = len(part_a_configs)
+
+    # Resume: skip Part A if checkpoint exists with all 360 rows
+    if ckpt_a.exists():
+        with open(ckpt_a) as f:
+            reader = csv.DictReader(f)
+            results = list(reader)
+        if len(results) == total:
+            print(f"  [RESUME] Part A already complete ({len(results)} rows) — skipping")
+        else:
+            print(f"  [RESUME] Part A partial ({len(results)}/{total}) — recomputing from scratch")
+            results = []
+    else:
+        results = []
+
+    t0 = time.time()
+    resumed_from = len(results)
+
     for i, cfg in enumerate(part_a_configs):
+        if i < resumed_from:
+            continue  # skip already done
         if (i+1) % 40 == 1:
             elapsed = time.time() - t0
-            rate = (i+1) / elapsed if elapsed > 0 else 0
+            rate = (i+1 - resumed_from) / elapsed if elapsed > 0 else 0
             eta = (total - i - 1) / rate if rate > 0 else 0
             print(f"\n  A progress: {i+1}/{total} ({100*(i+1)/total:.1f}%) "
                   f"elapsed={elapsed:.0f}s  eta={eta:.0f}s", flush=True)
@@ -369,16 +393,15 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         results.append({**cfg, "train_mse": train_mse, "test_mse": test_mse,
                         "scale_distance": 0, "same_L": True, "part": "A"})
 
-    # ── Checkpoint after Part A ─────────────────────────────────────────────
-    import csv
-    ckpt_a = OUT_DIR / "cross_scale_partA.csv"
-    with open(ckpt_a, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=results[0].keys())
-        writer.writeheader()
-        writer.writerows(results)
-    print(f"  Part A checkpoint saved ({len(results)} rows): {ckpt_a}", flush=True)
+        # Checkpoint every 40 runs and at end of Part A
+        if (i+1) % 40 == 0 or (i+1) == total:
+            with open(ckpt_a, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=results[0].keys())
+                writer.writeheader()
+                writer.writerows(results)
+            print(f"  Part A checkpoint ({len(results)}/{total} rows): {ckpt_a}", flush=True)
 
-    # ══ Part B: Cross-scale experiment ════════════════════════════════════════
+    # ── Part B: Cross-scale experiment ════════════════════════════════════════
     print("\n\n[Part B] Cross-scale: L=8→L=16 transfer")
     print("  Train at L=8 (zero-padded to 256-dim), test at L=16")
     print("  Models: MLP, Linear  (CNN/RGMLP require fixed architecture)")
@@ -394,7 +417,28 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
                 })
 
     total_b = len(part_b_configs)
+
+    # Resume: skip Part B if checkpoint exists with all 420 rows
+    if ckpt_b.exists():
+        with open(ckpt_b) as f:
+            reader = csv.DictReader(f)
+            results = list(reader)
+        if len(results) == total + total_b:
+            print(f"  [RESUME] Part B already complete ({len(results)} total rows) — skipping to plots")
+        else:
+            print(f"  [RESUME] Part B partial ({len(results)}/{total+total_b} total) — recomputing from scratch")
+            # Truncate to just Part A and recompute Part B
+            results = results[:total]
+    else:
+        # Ensure results has only Part A (in case we resumed from Part A checkpoint)
+        if len(results) == total and not ckpt_b.exists():
+            pass  # results already has Part A only
+
+    resumed_b_from = len(results) - total if len(results) > total else 0
+
     for i, cfg in enumerate(part_b_configs):
+        if i < resumed_b_from:
+            continue  # skip already done
         if (i+1) % 20 == 1:
             elapsed = time.time() - t0
             rate = (total + i + 1) / elapsed if elapsed > 0 else 0
@@ -413,18 +457,32 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         results.append({**cfg, "train_mse": train_mse, "test_mse": test_mse,
                         "scale_distance": 8, "same_L": False, "part": "B"})
 
-    # ── Checkpoint after Part B ─────────────────────────────────────────────
-    ckpt_b = OUT_DIR / "cross_scale_partB.csv"
-    with open(ckpt_b, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=results[0].keys())
-        writer.writeheader()
-        writer.writerows(results)
-    print(f"  Part B checkpoint saved ({len(results)} rows): {ckpt_b}", flush=True)
+        # Checkpoint every 20 runs and at end of Part B
+        if (i+1) % 20 == 0 or (i+1) == total_b:
+            with open(ckpt_b, "w", newline="") as f:
+                writer = csv.DictWriter(f, fieldnames=results[0].keys())
+                writer.writeheader()
+                writer.writerows(results)
+            print(f"  Part B checkpoint ({len(results)} total rows): {ckpt_b}", flush=True)
 
     elapsed_total = time.time() - t0
     print(f"\n\n  Total: {len(results)} runs in {elapsed_total:.0f}s "
           f"({elapsed_total/len(results):.1f}s/run, "
           f"{elapsed_total/3600:.2f}h)")
+
+    # ── Convert string values from CSV resume to proper types ──────────────────
+    for r in results:
+        # Boolean
+        if r.get("same_L") in ("True", "False"):
+            r["same_L"] = r["same_L"] == "True"
+        # Numeric
+        for _field in ["beta", "L_data", "L_target", "model_L_in", "model_L_out",
+                       "train_mse", "test_mse", "scale_distance", "seed"]:
+            if _field in r and isinstance(r[_field], str):
+                try:
+                    r[_field] = float(r[_field])
+                except (ValueError, TypeError):
+                    pass
 
     # ── Save raw results ───────────────────────────────────────────────────
     import csv
@@ -479,14 +537,14 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
                     "obs_diff": obs_diff,
                 }
                 print(f"\n  L={L}, β={beta:.4f}:", flush=True)
-                print(f"    MLP   : {np.mean(mlp_scores, flush=True):.4f} ± {np.std(mlp_scores,ddof=1):.4f}")
-                print(f"    Linear: {np.mean(lin_scores, flush=True):.4f} ± {np.std(lin_scores,ddof=1):.4f}")
+                print(f"    MLP   : {np.mean(mlp_scores):.4f} ± {np.std(mlp_scores,ddof=1):.4f}")
+                print(f"    Linear: {np.mean(lin_scores):.4f} ± {np.std(lin_scores,ddof=1):.4f}")
                 print(f"    Welch t={t_stat:.3f}, p={t_pval:.4f}", flush=True)
                 print(f"    Mann-Wh U={u_stat:.1f}, p={u_pval:.4f}", flush=True)
                 print(f"    Permutation p={perm_p:.4f}, Cohen d={d:.3f}", flush=True)
 
     # Cross-scale comparison
-    print("\n  Cross-scale (L=8→L=16, flush=True) vs Same-L=16:")
+    print("\n  Cross-scale (L=8→L=16) vs Same-L=16:")
     df_cross = df[df["part"] == "B"].copy()
     df_L16_same = df_same[(df_same["L_data"] == 16) & (df_same["beta"] == beta)]
     for model in ["MLP", "Linear"]:
@@ -506,7 +564,7 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
                     "degradation": float(np.mean(cross_scores) / (np.mean(same_scores) + 1e-10)),
                 }
                 print(f"  {model} β={beta:.4f}: "
-                      f"cross-scale={np.mean(cross_scores, flush=True):.4f}±{np.std(cross_scores,ddof=1):.4f} "
+                      f"cross-scale={np.mean(cross_scores):.4f}±{np.std(cross_scores,ddof=1):.4f} "
                       f"vs same-L16={np.mean(same_scores):.4f}±{np.std(same_scores,ddof=1):.4f} "
                       f"ratio={np.mean(cross_scores)/(np.mean(same_scores)+1e-10):.2f}x")
 
@@ -617,84 +675,90 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         print(f"\n  WARNING: Figure generation failed: {e}", flush=True)
         import traceback; traceback.print_exc()
 
-    # ── RG Equivariance + Temperature Dependence ─────────────────────────────
-    print("\n  === RG EQUIVARIANCE TEST ===", flush=True)
-    eq_results = {}
-    for seed in range(42, 42 + 5):
-        torch.manual_seed(seed)
-        np.random.seed(seed)
-        ising = IsingModel(IsingConfig(L=16, beta=0.4407, h=0.0, J=1.0))
-        ising.equilibriate(1000)
-        rg = BlockSpinRG(block_size=2)
-        fine, coarse1, coarse2 = [], [], []
-        for _ in range(500 + 100):
-            ising.metropolis_step(ising.state)
-            s = ising.state.copy()
-            fine.append(s)
-            coarse1.append(rg.block_spin_transform(s))
-            coarse2.append(rg.block_spin_transform(rg.block_spin_transform(s)))
-        fine = np.array(fine[:500])
-        coarse1 = np.array(coarse1[:500])
-        coarse2 = np.array(coarse2[:500])
+    # ── RG Equivariance + Temperature Dependence (skip on error) ──────────────
+        print("\n  === RG EQUIVARIANCE TEST ===", flush=True)
+        eq_results = {}
+        for seed in range(42, 42 + 5):
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+            ising = IsingModel(IsingConfig(L=16, beta=0.4407, h=0.0, J=1.0))
+            ising.equilibriate(1000)
+            rg = BlockSpinRG(block_size=2)
+            fine, coarse1, coarse2 = [], [], []
+            for _ in range(500 + 100):
+                ising.metropolis_step(ising.state)
+                s = ising.state.copy()
+                fine.append(s)
+                coarse1.append(rg.block_spin_transform(s))
+                coarse2.append(rg.block_spin_transform(rg.block_spin_transform(s)))
+            fine = np.array(fine[:500])
+            coarse1 = np.array(coarse1[:500])
+            coarse2 = np.array(coarse2[:500])
 
-        fine_t = torch.from_numpy(fine.astype(np.float32))
-        ds1 = SpinDataset(fine, coarse1)
-        dl1 = DataLoader(ds1, batch_size=32, shuffle=True)
+            fine_t = torch.from_numpy(fine.astype(np.float32))
+            ds1 = SpinDataset(fine, coarse1)
+            dl1 = DataLoader(ds1, batch_size=32, shuffle=True)
 
-        # Train model on L→L/2
-        model = FlatMLP(256, 64).to("cpu")
-        opt = torch.optim.Adam(model.parameters(), lr=1e-3)
-        crit = nn.MSELoss()
-        for ep in range(200):
-            model.train()
-            for x, y in dl1:
-                opt.zero_grad()
-                loss = crit(model(x), y)
-                loss.backward()
-                opt.step()
+            # Train model on L→L/2
+            model = FlatMLP(256, 64).to("cpu")
+            opt = torch.optim.Adam(model.parameters(), lr=1e-3)
+            crit = nn.MSELoss()
+            for ep in range(200):
+                model.train()
+                for x, y in dl1:
+                    opt.zero_grad()
+                    loss = crit(model(x), y)
+                    loss.backward()
+                    opt.step()
 
-        model.eval()
-        with torch.no_grad():
-            # One-step: L→L/2
-            mse1 = crit(model(fine_t), torch.from_numpy(coarse1.astype(np.float32))).item()
-            # Two-step: L→L/2→L/4
-            s1 = torch.tanh(model(fine_t)).numpy()
-            s2 = np.array([rg.block_spin_transform(s1[i].reshape(8,8)).flatten()
-                           for i in range(len(s1))])
-            mse2 = float(crit(torch.from_numpy(s2.astype(np.float32)),
-                               torch.from_numpy(coarse2.astype(np.float32))).item())
-        eq_results[f"seed_{seed}"] = {"mse_L_to_L2": mse1, "mse_L_to_L4": mse2}
-        print(f"    seed {seed}: MSE(L→L/2, flush=True)={mse1:.4f}, MSE(L→L/4)={mse2:.4f}, "
-              f"Δ={abs(mse2-mse1):.4f}")
+            model.eval()
+            with torch.no_grad():
+                # One-step: L→L/2
+                mse1 = crit(model(fine_t), torch.from_numpy(coarse1.astype(np.float32))).item()
+                # Two-step: L→L/2→L/4
+                s1 = torch.tanh(model(fine_t)).numpy()
+                s2 = np.array([rg.block_spin_transform(s1[i].reshape(8,8)).flatten()
+                               for i in range(len(s1))])
+                mse2 = float(crit(torch.from_numpy(s2.astype(np.float32)),
+                                   torch.from_numpy(coarse2.astype(np.float32))).item())
+            eq_results[f"seed_{seed}"] = {"mse_L_to_L2": mse1, "mse_L_to_L4": mse2}
+            print(f"    seed {seed}: MSE(L→L/2)={mse1:.4f}, MSE(L→L/4)={mse2:.4f}, "
+                  f"Δ={abs(mse2-mse1):.4f}")
 
-    with open(OUT_DIR / "rg_equivariance.json", "w") as f:
-        json.dump(eq_results, f, indent=2)
+        with open(OUT_DIR / "rg_equivariance.json", "w") as f:
+            json.dump(eq_results, f, indent=2)
 
-    print("\n  === TEMPERATURE DEPENDENCE ===", flush=True)
-    temp_dep = {}
-    for beta in betas:
-        print(f"\n  β={beta:.4f}:", flush=True)
-        temp_dep[f"beta_{beta:.4f}"] = {}
-        for model in ["MLP", "Linear"]:
-            scores = []
-            for seed in range(42, 42 + 5):
-                _, mse = train_and_eval(
-                    model, beta=beta,
-                    n_train=500, n_test=300,
-                    epochs=200, batch_size=32,
-                    seed=seed, device="cpu",
-                    L_data=16, L_target=16,
-                    model_L_in=256, model_L_out=64,
-                )
-                scores.append(mse)
-            temp_dep[f"beta_{beta:.4f}"][model] = {
-                "mean": float(np.mean(scores)),
-                "std": float(np.std(scores, ddof=1)),
-            }
-            print(f"    {model}: {np.mean(scores, flush=True):.4f} ± {np.std(scores,ddof=1):.4f}")
+    except Exception as e:
+        print(f"  [RG equivariance skipped: {e}]", flush=True)
 
-    with open(OUT_DIR / "temperature_dependence.json", "w") as f:
-        json.dump(temp_dep, f, indent=2, default=str)
+        print("\n  === TEMPERATURE DEPENDENCE ===", flush=True)
+        temp_dep = {}
+        for beta in betas:
+            print(f"\n  β={beta:.4f}:", flush=True)
+            temp_dep[f"beta_{beta:.4f}"] = {}
+            for model in ["MLP", "Linear"]:
+                scores = []
+                for seed in range(42, 42 + 5):
+                    _, mse = train_and_eval(
+                        model, beta=beta,
+                        n_train=500, n_test=300,
+                        epochs=200, batch_size=32,
+                        seed=seed, device="cpu",
+                        L_data=16, L_target=16,
+                        model_L_in=256, model_L_out=64,
+                    )
+                    scores.append(mse)
+                temp_dep[f"beta_{beta:.4f}"][model] = {
+                    "mean": float(np.mean(scores)),
+                    "std": float(np.std(scores, ddof=1)),
+                }
+                print(f"    {model}: {np.mean(scores):.4f} ± {np.std(scores,ddof=1):.4f}")
+
+        with open(OUT_DIR / "temperature_dependence.json", "w") as f:
+            json.dump(temp_dep, f, indent=2, default=str)
+
+    except Exception as e:
+        print(f"  [Temperature dependence skipped: {e}]", flush=True)
 
     summary = {
         "n_seeds": n_seeds, "n_runs": len(results),
@@ -710,5 +774,5 @@ if __name__ == "__main__":
     df, stats, summary = run_cross_scale_experiment(n_seeds=10)
     elapsed = time.time() - t0
     print(f"\n{'='*70}", flush=True)
-    print(f"  COMPLETE in {elapsed:.0f}s ({elapsed/3600:.2f}h, flush=True)")
+    print(f"  COMPLETE in {elapsed:.0f}s ({elapsed/3600:.2f}h)")
     print(f"{'='*70}", flush=True)

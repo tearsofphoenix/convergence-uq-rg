@@ -1,6 +1,8 @@
 """
-Generate ablation figure subplots individually + combined.
-Saves each subplot as a separate PNG, plus the combined 2x3 grid.
+Generate legacy pilot ablation figure subplots individually + combined.
+
+这些图对应 `ablation_rg.py` 的 3-seed pilot 输出，不属于当前论文主文
+引用的统一 10-seed benchmark。
 """
 import json, sys
 from pathlib import Path
@@ -11,11 +13,19 @@ import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-OUT = Path("/Users/isaacliu/workspace/convergence-uq-rg/outputs/rg_bench/figures")
+OUT_ROOT = Path("outputs/rg_bench/pilot_ablation")
+OUT = OUT_ROOT / "figures"
 SUBPLOT_OUT = OUT / "subplots"
 SUBPLOT_OUT.mkdir(parents=True, exist_ok=True)
 
-with open("/Users/isaacliu/workspace/convergence-uq-rg/outputs/rg_bench/ablation_results.json") as f:
+ABLATION_JSON = OUT_ROOT / "ablation_results.json"
+if not ABLATION_JSON.exists():
+    raise FileNotFoundError(
+        f"Missing pilot ablation results: {ABLATION_JSON}. "
+        "Run topic3_rg/ablation_rg.py first."
+    )
+
+with open(ABLATION_JSON) as f:
     data = json.load(f)
 
 beta_c = 0.4407
@@ -31,7 +41,7 @@ def save_separate():
     colors = ["#2171B5", "#E6550D"]
     bars = ax.bar(labels, means, yerr=stds, capsize=5, color=colors, alpha=0.85)
     ax.set_ylabel("Test MSE")
-    ax.set_title(f"A1: Block-Spin vs Random Labels\n(MLP, L=16, \u03b2={beta_c})")
+    ax.set_title(f"Pilot A1: Block-Spin vs Random Labels\n(MLP, L=16, \u03b2={beta_c})")
     ax.set_yscale("log")
     ax.grid(True, alpha=0.3, axis="y")
     for bar, m in zip(bars, means):
@@ -50,7 +60,7 @@ def save_separate():
     colors2 = ["#2171B5", "#6A51A3"]
     bars2 = ax.bar(labels2, means2, yerr=stds2, capsize=5, color=colors2, alpha=0.85)
     ax.set_ylabel("Test MSE")
-    ax.set_title(f"A2: MLP vs Linear Baseline\n(L=16, \u03b2={beta_c})")
+    ax.set_title(f"Pilot A2: MLP vs Linear Baseline\n(L=16, \u03b2={beta_c})")
     ax.set_yscale("log")
     ax.grid(True, alpha=0.3, axis="y")
     for bar, m in zip(bars2, means2):
@@ -70,7 +80,7 @@ def save_separate():
            color="#31A354", alpha=0.85)
     ax.set_xlabel("Hidden Width")
     ax.set_ylabel("Test MSE")
-    ax.set_title(f"A3: Width Robustness\n(L=16, \u03b2={beta_c})")
+    ax.set_title(f"Pilot A3: Width Robustness\n(L=16, \u03b2={beta_c})")
     ax.set_yscale("log")
     ax.grid(True, alpha=0.3, axis="y")
     for i, (w, m) in enumerate(zip(widths, w_means)):
@@ -91,7 +101,7 @@ def save_separate():
     ax.set_xticklabels(test_Ls)
     ax.set_xlabel("Lattice size")
     ax.set_ylabel("Test MSE")
-    ax.set_title(f"A4: Block-Spin Learning by L\n(\u03b2={beta_c}, hidden=256)")
+    ax.set_title(f"Pilot A4: Block-Spin Learning by L\n(\u03b2={beta_c}, hidden=256)")
     ax.grid(True, alpha=0.3, axis="y")
     for i, v in enumerate(vals):
         ax.text(i, v*1.05, f"{v:.4f}", ha="center", va="bottom", fontsize=8)
@@ -109,7 +119,7 @@ def save_separate():
     ax.plot(betas, rhos, "bo-", ms=7, lw=2)
     ax.set_xlabel("\u03b2 (inverse temperature)")
     ax.set_ylabel("Spectral radius \u03c1 (max singular value)")
-    ax.set_title("Encoder Spectral Radius vs \u03b2\n(peak near criticality)")
+    ax.set_title("Pilot: Encoder Spectral Radius vs \u03b2\n(peak near criticality)")
     ax.legend()
     ax.grid(True, alpha=0.3)
     fig.tight_layout()
@@ -124,7 +134,7 @@ def save_separate():
             ha="center", va="center", fontsize=11,
             transform=ax.transAxes,
             bbox=dict(boxstyle="round", facecolor="#f0f0f0", alpha=0.8))
-    ax.set_title("Turbulence: Energy Spectrum\n(preliminary; see Sec. 4.3)")
+    ax.set_title("Pilot: Turbulence Energy Spectrum\n(preliminary)")
     ax.axis("off")
     fig.tight_layout()
     fig.savefig(SUBPLOT_OUT / "fig_ablations_f.png", dpi=150, bbox_inches="tight")
@@ -135,7 +145,7 @@ def save_separate():
 def save_combined():
     """Save the 2x3 combined figure (matches original layout)."""
     fig, axes = plt.subplots(2, 3, figsize=(16, 10))
-    fig.suptitle("Ising Block-Spin Learning: Ablation Results", fontsize=14)
+    fig.suptitle("Legacy Pilot Ablation Results (Not Main Benchmark)", fontsize=14)
 
     # A1
     ax = axes[0, 0]
@@ -145,7 +155,7 @@ def save_combined():
     colors = ["#2171B5", "#E6550D"]
     bars = ax.bar(labels, means, yerr=stds, capsize=5, color=colors, alpha=0.85)
     ax.set_ylabel("Test MSE")
-    ax.set_title(f"A1: Block-Spin vs Random Labels\n(MLP, L=16, \u03b2={beta_c})")
+    ax.set_title(f"Pilot A1: Block-Spin vs Random Labels\n(MLP, L=16, \u03b2={beta_c})")
     ax.set_yscale("log")
     ax.grid(True, alpha=0.3, axis="y")
     for bar, m in zip(bars, means):
@@ -160,7 +170,7 @@ def save_combined():
     colors2 = ["#2171B5", "#6A51A3"]
     bars2 = ax.bar(labels2, means2, yerr=stds2, capsize=5, color=colors2, alpha=0.85)
     ax.set_ylabel("Test MSE")
-    ax.set_title(f"A2: MLP vs Linear Baseline\n(L=16, \u03b2={beta_c})")
+    ax.set_title(f"Pilot A2: MLP vs Linear Baseline\n(L=16, \u03b2={beta_c})")
     ax.set_yscale("log")
     ax.grid(True, alpha=0.3, axis="y")
     for bar, m in zip(bars2, means2):
@@ -176,7 +186,7 @@ def save_combined():
            color="#31A354", alpha=0.85)
     ax.set_xlabel("Hidden Width")
     ax.set_ylabel("Test MSE")
-    ax.set_title(f"A3: Width Robustness\n(L=16, \u03b2={beta_c})")
+    ax.set_title(f"Pilot A3: Width Robustness\n(L=16, \u03b2={beta_c})")
     ax.set_yscale("log")
     ax.grid(True, alpha=0.3, axis="y")
 
@@ -191,7 +201,7 @@ def save_combined():
     ax.set_xticklabels(test_Ls)
     ax.set_xlabel("Lattice size")
     ax.set_ylabel("Test MSE")
-    ax.set_title(f"A4: Block-Spin Learning by L\n(\u03b2={beta_c}, hidden=256)")
+    ax.set_title(f"Pilot A4: Block-Spin Learning by L\n(\u03b2={beta_c}, hidden=256)")
     ax.grid(True, alpha=0.3, axis="y")
 
     # A5: Spectral radius
@@ -203,7 +213,7 @@ def save_combined():
     ax.plot(betas, rhos, "bo-", ms=7, lw=2)
     ax.set_xlabel("\u03b2 (inverse temperature)")
     ax.set_ylabel("Spectral radius \u03c1 (max singular value)")
-    ax.set_title("Encoder Spectral Radius vs \u03b2\n(peak near criticality)")
+    ax.set_title("Pilot: Encoder Spectral Radius vs \u03b2\n(peak near criticality)")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
@@ -214,7 +224,7 @@ def save_combined():
             ha="center", va="center", fontsize=11,
             transform=ax.transAxes,
             bbox=dict(boxstyle="round", facecolor="#f0f0f0", alpha=0.8))
-    ax.set_title("Turbulence: Energy Spectrum\n(preliminary; see Sec. 4.3)")
+    ax.set_title("Pilot: Turbulence Energy Spectrum\n(preliminary)")
     ax.axis("off")
 
     plt.tight_layout()

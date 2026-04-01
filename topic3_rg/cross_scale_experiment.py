@@ -1,25 +1,21 @@
 """
 Cross-Scale Transfer Experiment (R2) for Paper 3 RG × NN
 =========================================================
-Definitive R2 experiment: can a model trained at L=8 generalize to L=16?
 
-Design:
-  Part A — Same-L baselines (all L ∈ {4,8,16}, β ∈ {0.30, βc, 0.60}):
-    MLP, Linear, CNN, RGMLP × 10 seeds → 3×3×4×10 = 360 runs
+本脚本现在与 `cross_scale_mlx.py` 对齐，采用同一套 patch-based transfer
+protocol，避免再次生成与论文正文冲突的 zero-padding 旧结果。
 
-  Part B — Cross-scale transfer (the core R2 test):
-    Train at L=8, test at L=16 (both 256→64 architecture).
-    L=8 configs are zero-padded to 256-dim to match L=16 input dimension.
-    Tests: does training at smaller scale help or hurt generalization?
-    If RG-like: cross-scale error should be comparable to within-L=16.
-    If not RG-like: cross-scale error should be substantially worse.
-
+设计:
+  Part A — Same-L baselines (L ∈ {4,8,16}, β ∈ {0.30, βc, 0.60})
+  Part B — Patch-based transfer proxy:
+      训练:  L=8 原生输入 (64 dim) → 4×4 block-spin 输出 (16 dim)
+      测试:  从 16×16 配置提取左上角 8×8 patch，再做同样的 64→16 评估
   Part C — RG Equivariance + Temperature Dependence (n=5 seeds)
 
-Outputs:
-  cross_scale_raw.csv        — all individual run results
-  cross_scale_statistics.json — statistical tests (Welch t, Mann-Whitney, permutation, CI)
-  figures/                   — heatmaps, scale-distance plots
+输出:
+  outputs/rg_bench/cross_scale/cross_scale_raw.csv
+  outputs/rg_bench/cross_scale/cross_scale_statistics.json
+  outputs/rg_bench/cross_scale/figures/*.png
 """
 from __future__ import annotations
 import sys, os
@@ -31,18 +27,49 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 import numpy as np
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+try:
+    import torch
+    import torch.nn as nn
+    from torch.utils.data import Dataset, DataLoader
+except ImportError:
+    print(
+        "ERROR: PyTorch is required for topic3_rg/cross_scale_experiment.py.\n"
+        "This script now mirrors the MLX patch-based benchmark protocol, but it\n"
+        "still requires a local torch install to run.\n"
+        "If you want the benchmark used by the current paper revision, run\n"
+        "topic3_rg/cross_scale_mlx.py in an MLX-capable session.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 from scipy import stats
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from topic3_rg.ising import IsingModel, IsingConfig, BlockSpinRG
 
-OUT_DIR = Path("/Users/isaacliu/workspace/convergence-uq-rg/outputs/rg_bench/cross_scale")
+OUT_DIR = Path("outputs/rg_bench/cross_scale")
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 FIG_DIR = OUT_DIR / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
+
+
+def configure_runtime_cache() -> None:
+    root = Path(__file__).resolve().parent.parent
+    mpl_dir = root / ".runtime-cache" / "matplotlib"
+    xdg_dir = root / ".runtime-cache" / "xdg"
+    mpl_dir.mkdir(parents=True, exist_ok=True)
+    xdg_dir.mkdir(parents=True, exist_ok=True)
+    os.environ.setdefault("MPLCONFIGDIR", str(mpl_dir))
+    os.environ.setdefault("XDG_CACHE_HOME", str(xdg_dir))
+
+
+def print_protocol_banner() -> None:
+    print("\n" + "=" * 70, flush=True)
+    print("  PAPER 3 MAIN BENCHMARK (PYTORCH MIRROR OF MLX PROTOCOL)", flush=True)
+    print("  Protocol : patch-based transfer proxy", flush=True)
+    print("  Part A   : same-L baselines on native lattices", flush=True)
+    print("  Part B   : train on 8x8, test on 16x16 top-left 8x8 patch", flush=True)
+    print(f"  Output   : {OUT_DIR}", flush=True)
+    print("=" * 70, flush=True)
 
 
 # ─── Models ──────────────────────────────────────────────────────────────────
@@ -150,77 +177,48 @@ class SpinDataset(Dataset):
         return self.fine[idx], self.coarse[idx]
 
 
-# ─── Helpers ─────────────────────────────────────────────────────────────────
-
-def zero_pad_to_256(fine_configs: np.ndarray) -> np.ndarray:
-    """
-    Zero-pad fine_configs from 64-dim (L=8) to 256-dim (L=16).
-    The coarse labels stay at 16-dim (L=8 → 4, or L=16 → 8 depending on context).
-    For cross-scale: we use L=16 target, so coarse is always 64-dim.
-    """
-    n = len(fine_configs)
-    padded = np.zeros((n, 256), dtype=np.float32)
-    padded[:, :64] = fine_configs  # L=8 configs fit in first 64 positions
-    return padded
-
-
 # ─── Training ────────────────────────────────────────────────────────────────
 
 def train_and_eval(model_cls, beta, n_train, n_test, epochs, batch_size,
                    seed, device, L_data, L_target, model_L_in, model_L_out):
     """
-    Train model_cls at given beta.
-    - L_data: lattice size for data generation
-    - L_target: target lattice size (coarse-grained output dimension)
-    - model_L_in/model_L_out: model input/output dimensions
+    训练并评估单个配置。
+    当 `L_data=8, L_target=16, model_L_in=64` 时，使用 patch-based transfer:
+    训练集来自原生 8×8 配置；测试集来自 16×16 配置的左上角 8×8 patch。
     """
     torch.manual_seed(seed)
     np.random.seed(seed)
 
     rg = BlockSpinRG(block_size=2)
 
-    # Generate training data
-    # For training: fine configs at L_data, coarse labels at L_target
-    # (L_target = the scale the model is trained to output)
+    # 训练数据始终在 L_data 原生尺度上生成
     ising = IsingModel(IsingConfig(L=L_data, beta=beta, h=0.0, J=1.0))
     ising.equilibriate(1000)
     fine_train, coarse_train = [], []
-
-    # Cross-scale: also need configs at L_target to compute coarse labels
-    if L_data != L_target:
-        ising_target = IsingModel(IsingConfig(L=L_target, beta=beta, h=0.0, J=1.0))
-        ising_target.equilibriate(1000)
-        target_configs = []
-        for _ in range(n_train + 200):
-            ising_target.metropolis_step(ising_target.state)
-            target_configs.append(ising_target.state.copy())
-        target_configs = np.array(target_configs[:n_train + 200])
 
     for i in range(n_train + 200):
         ising.metropolis_step(ising.state)
         fine = ising.state.copy()
         fine_train.append(fine.flatten())
-        if L_data == L_target:
-            coarse = rg.block_spin_transform(fine.copy())
-        else:
-            # For cross-scale: coarsegraining of a corresponding L_target config
-            coarse = rg.block_spin_transform(target_configs[i].copy())
+        coarse = rg.block_spin_transform(fine.copy())
         coarse_train.append(coarse.flatten())
     fine_train = np.array(fine_train[:n_train])
     coarse_train = np.array(coarse_train[:n_train])
 
-    # Generate test data (always at L_target scale for evaluation)
+    # 测试数据在 L_target 上生成；patch-based transfer 时只抽取左上角 8×8 patch
     ising_test = IsingModel(IsingConfig(L=L_target, beta=beta, h=0.0, J=1.0))
     ising_test.equilibriate(1000)
     fine_test, coarse_test = [], []
     for _ in range(n_test + 100):
         ising_test.metropolis_step(ising_test.state)
         fine = ising_test.state.copy()
-        # BUG FIX: coarsegraining is always at L_target scale (the evaluation scale),
-        # not L_data. For cross-scale (L_data=8, L_target=16): the model outputs
-        # 64-dim (coarse at L=16), so test labels must also be coarse at L=16.
-        coarse = rg.block_spin_transform(ising_test.state.copy())
-        fine_test.append(fine.flatten())
+        if model_L_in == 64 and L_target == 16:
+            fine_in = fine[:8, :8]
+            coarse = rg.block_spin_transform(fine_in.copy())
+            fine_test.append(fine_in.flatten())
+        else:
+            coarse = rg.block_spin_transform(fine.copy())
+            fine_test.append(fine.flatten())
         coarse_test.append(coarse.flatten())
     fine_test = np.array(fine_test[:n_test])
     coarse_test = np.array(coarse_test[:n_test])
@@ -241,14 +239,7 @@ def train_and_eval(model_cls, beta, n_train, n_test, epochs, batch_size,
         raise ValueError(model_cls)
     model = model.to(device)
 
-    # Prepare training data
-    if model_L_in == 256 and L_data == 8:
-        # Cross-scale: zero-pad L=8 configs to 256-dim
-        fine_train_padded = zero_pad_to_256(fine_train)
-    else:
-        fine_train_padded = fine_train
-
-    train_ds = SpinDataset(fine_train_padded, coarse_train)
+    train_ds = SpinDataset(fine_train, coarse_train)
     train_loader = DataLoader(train_ds, batch_size=batch_size, shuffle=True)
 
     optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
@@ -267,14 +258,12 @@ def train_and_eval(model_cls, beta, n_train, n_test, epochs, batch_size,
     # Evaluate on L_target test data
     model.eval()
     with torch.no_grad():
-        # Test data is always L_target (native scale)
         fine_t = torch.from_numpy(fine_test.astype(np.float32)).to(device)
         coarse_t = torch.from_numpy(coarse_test.astype(np.float32)).to(device)
         pred_test = model(fine_t)
         test_mse = criterion(pred_test, coarse_t).item()
 
-        # Train MSE (on padded training data)
-        fine_t_train = torch.from_numpy(fine_train_padded.astype(np.float32)).to(device)
+        fine_t_train = torch.from_numpy(fine_train.astype(np.float32)).to(device)
         coarse_t_train = torch.from_numpy(coarse_train.astype(np.float32)).to(device)
         pred_train = model(fine_t_train)
         train_mse = criterion(pred_train, coarse_t_train).item()
@@ -402,9 +391,10 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
             print(f"  Part A checkpoint ({len(results)}/{total} rows): {ckpt_a}", flush=True)
 
     # ── Part B: Cross-scale experiment ════════════════════════════════════════
-    print("\n\n[Part B] Cross-scale: L=8→L=16 transfer")
-    print("  Train at L=8 (zero-padded to 256-dim), test at L=16")
-    print("  Models: MLP, Linear  (CNN/RGMLP require fixed architecture)")
+    print("\n\n[Part B] Patch-based transfer proxy: L=8 → L=16")
+    print("  Train: native 8x8 input (64) -> 4x4 output (16)")
+    print("  Test : top-left 8x8 patch extracted from each 16x16 config")
+    print("  Models: MLP, Linear")
 
     part_b_configs = []
     for beta in betas:
@@ -412,7 +402,7 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
             for seed in seeds:
                 part_b_configs.append({
                     "L_data": 8, "L_target": 16,
-                    "model_L_in": 256, "model_L_out": 64,
+                    "model_L_in": 64, "model_L_out": 16,
                     "beta": beta, "model": model, "seed": seed,
                 })
 
@@ -557,10 +547,10 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
             if len(cross_scores) >= 2 and len(same_scores) >= 2:
                 key = f"CrossScale_{model}_beta={beta:.4f}"
                 stat_results[key] = {
-                    "cross_scale_mean": float(np.mean(cross_scores)),
-                    "cross_scale_std": float(np.std(cross_scores, ddof=1)),
-                    "same_L16_mean": float(np.mean(same_scores)),
-                    "same_L16_std": float(np.std(same_scores, ddof=1)),
+                    "cross_mean": float(np.mean(cross_scores)),
+                    "cross_std": float(np.std(cross_scores, ddof=1)),
+                    "same_mean": float(np.mean(same_scores)),
+                    "same_std": float(np.std(same_scores, ddof=1)),
                     "degradation": float(np.mean(cross_scores) / (np.mean(same_scores) + 1e-10)),
                 }
                 print(f"  {model} β={beta:.4f}: "
@@ -634,7 +624,7 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
             ax.set_title(beta_labels[beta])
             ax.legend()
             ax.grid(True, alpha=0.3, axis="y")
-        plt.suptitle("Cross-Scale Transfer Degradation: L=8→16 vs Same-L=16 (10 seeds)",
+        plt.suptitle("Patch-Based Transfer Proxy: 8x8 Train vs 16x16-Patch Test (10 seeds)",
                      fontweight="bold")
         plt.tight_layout()
         plt.savefig(FIG_DIR / "cross_scale_degradation.png", dpi=150, bbox_inches="tight")
@@ -770,6 +760,8 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
 
 
 if __name__ == "__main__":
+    configure_runtime_cache()
+    print_protocol_banner()
     t0 = time.time()
     df, stats, summary = run_cross_scale_experiment(n_seeds=10)
     elapsed = time.time() - t0

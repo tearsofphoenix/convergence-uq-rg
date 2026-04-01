@@ -1,13 +1,15 @@
 """
-Paper 3: Ising Ablation Experiments + Turbulence Spectrum
-=========================================================
-Ablations:
-  1. Block-spin labels vs RANDOM coarse-grain labels (MLP, L=16, β=0.4407)
-  2. MLP (3-layer) vs Linear model (shallow) at β=0.4407
-  3. Width comparison: hidden=128 vs 256 vs 512 at β=0.4407
-  4. Scale transfer at β=0.4407 and β=0.30 (3 distances each)
+Paper 3 pilot ablations (legacy 3-seed protocol)
+================================================
 
-Also generates turbulence energy spectrum figure.
+本脚本保留早期探索性实验：
+  1. 随机标签 sanity check
+  2. MLP vs Linear 小样本比较
+  3. 宽度消融
+  4. 旧版 scale transfer 草图
+
+注意：这些结果不是当前论文主表格使用的统一 10-seed benchmark，
+不能与 `cross_scale_*` 输出直接混写。
 """
 from __future__ import annotations
 import sys, json, time
@@ -15,9 +17,19 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 import numpy as np
-import torch
-import torch.nn as nn
-from torch.utils.data import Dataset, DataLoader
+try:
+    import torch
+    import torch.nn as nn
+    from torch.utils.data import Dataset, DataLoader
+except ImportError:
+    print(
+        "ERROR: PyTorch is required for topic3_rg/ablation_rg.py.\n"
+        "This script is a legacy 3-seed pilot and is not needed for the main\n"
+        "paper benchmark. If you only want the current paper protocol, use\n"
+        "topic3_rg/cross_scale_mlx.py instead.",
+        file=sys.stderr,
+    )
+    raise SystemExit(1)
 import matplotlib
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -26,8 +38,16 @@ from scipy import stats
 torch.manual_seed(42)
 np.random.seed(42)
 DEVICE = "cpu"
-OUT = Path("/Users/isaacliu/workspace/convergence-uq-rg/outputs/rg_bench")
+OUT = Path("outputs/rg_bench/pilot_ablation")
 OUT.mkdir(parents=True, exist_ok=True)
+
+
+def print_pilot_banner() -> None:
+    print("\n" + "=" * 70)
+    print("  LEGACY PILOT ABLATIONS (NOT MAIN BENCHMARK)")
+    print("  Seeds    : 3-seed exploratory protocol")
+    print(f"  Output   : {OUT}")
+    print("=" * 70)
 
 # ---- Ising infrastructure ----
 from topic3_rg.ising import IsingModel, IsingConfig, BlockSpinRG
@@ -371,7 +391,7 @@ def spectral_radius_corrected():
 def plot_all(results, spec_results, ablation4_results):
     beta_c = 0.4407
     fig, axes = plt.subplots(2, 3, figsize=(16, 10))
-    fig.suptitle("Ising Block-Spin Learning: Ablation Results", fontsize=14)
+    fig.suptitle("Legacy Pilot Ablation Results (Not Main Benchmark)", fontsize=14)
 
     # A1: Block-spin vs Random
     ax = axes[0, 0]
@@ -381,7 +401,7 @@ def plot_all(results, spec_results, ablation4_results):
     colors = ["#2171B5", "#E6550D"]
     bars = ax.bar(labels, means, yerr=stds, capsize=5, color=colors, alpha=0.85)
     ax.set_ylabel("Test MSE")
-    ax.set_title("A1: Block-Spin vs Random Labels\n(MLP, L=16, β=0.4407)")
+    ax.set_title("Pilot A1: Block-Spin vs Random Labels\n(MLP, L=16, β=0.4407)")
     ax.set_yscale("log")
     ax.grid(True, alpha=0.3, axis="y")
     for bar, m in zip(bars, means):
@@ -396,7 +416,7 @@ def plot_all(results, spec_results, ablation4_results):
     colors2 = ["#2171B5", "#6A51A3"]
     bars2 = ax.bar(labels2, means2, yerr=stds2, capsize=5, color=colors2, alpha=0.85)
     ax.set_ylabel("Test MSE")
-    ax.set_title("A2: MLP vs Linear Baseline\n(L=16, β=0.4407)")
+    ax.set_title("Pilot A2: MLP vs Linear Baseline\n(L=16, β=0.4407)")
     ax.set_yscale("log")
     ax.grid(True, alpha=0.3, axis="y")
     for bar, m in zip(bars2, means2):
@@ -412,7 +432,7 @@ def plot_all(results, spec_results, ablation4_results):
            color="#31A354", alpha=0.85)
     ax.set_xlabel("Hidden Width")
     ax.set_ylabel("Test MSE")
-    ax.set_title("A3: Width Robustness\n(L=16, β=0.4407)")
+    ax.set_title("Pilot A3: Width Robustness\n(L=16, β=0.4407)")
     ax.set_yscale("log")
     ax.grid(True, alpha=0.3, axis="y")
 
@@ -428,7 +448,7 @@ def plot_all(results, spec_results, ablation4_results):
     ax.set_xticklabels(test_Ls)
     ax.set_xlabel("Lattice size")
     ax.set_ylabel("Test MSE")
-    ax.set_title("A4: Block-Spin Learning by L\n(β=0.4407, hidden=256)")
+    ax.set_title("Pilot A4: Block-Spin Learning by L\n(β=0.4407, hidden=256)")
     ax.grid(True, alpha=0.3, axis="y")
 
     # Spectral radius vs β
@@ -439,7 +459,7 @@ def plot_all(results, spec_results, ablation4_results):
     ax.plot(betas, rhos, "bo-", ms=7, lw=2)
     ax.set_xlabel("β (inverse temperature)")
     ax.set_ylabel("Spectral radius ρ (max singular value)")
-    ax.set_title("Encoder Spectral Radius vs β\n(peak near β_c)")
+    ax.set_title("Pilot: Encoder Spectral Radius vs β\n(peak near β_c)")
     ax.legend()
     ax.grid(True, alpha=0.3)
 
@@ -450,11 +470,13 @@ def plot_all(results, spec_results, ablation4_results):
             ha="center", va="center", fontsize=11,
             transform=ax.transAxes,
             bbox=dict(boxstyle="round", facecolor="#f0f0f0", alpha=0.8))
-    ax.set_title("Turbulence: Energy Spectrum\n(Fig. generated separately)")
+    ax.set_title("Pilot: Turbulence Energy Spectrum\n(Fig. generated separately)")
     ax.axis("off")
 
     plt.tight_layout()
-    path = OUT / "figures" / "fig_ablations.png"
+    fig_dir = OUT / "figures"
+    fig_dir.mkdir(parents=True, exist_ok=True)
+    path = fig_dir / "fig_ablations.png"
     plt.savefig(path, dpi=150, bbox_inches="tight")
     print(f"Saved {path}")
     plt.close()
@@ -485,9 +507,10 @@ def main():
         json.dump(save_data, f, indent=2, default=str)
 
     print(f"\nTotal runtime: {time.time()-t0:.0f}s")
-    print("Saved: outputs/rg_bench/ablation_results.json")
-    print("Saved: outputs/rg_bench/figures/fig_ablations.png")
+    print("Saved: outputs/rg_bench/pilot_ablation/ablation_results.json")
+    print("Saved: outputs/rg_bench/pilot_ablation/figures/fig_ablations.png")
 
 
 if __name__ == "__main__":
+    print_pilot_banner()
     main()

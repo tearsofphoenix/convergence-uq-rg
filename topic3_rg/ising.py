@@ -129,6 +129,20 @@ class IsingModel:
                 state[i, j] *= -1
         return state
 
+    def metropolis_step_with_stats(self, state: Array) -> Tuple[Array, float]:
+        """一整次 sweep，并返回接受率。"""
+        L = self.L
+        accepted = 0
+        total = L * L
+        for _ in range(total):
+            i = np.random.randint(L)
+            j = np.random.randint(L)
+            dE = self.delta_energy(i, j, state)
+            if dE < 0 or np.random.rand() < np.exp(-self.beta * dE):
+                state[i, j] *= -1
+                accepted += 1
+        return state, accepted / total if total > 0 else 0.0
+
     def equilibriate(self, n_steps: int = 1000) -> Array:
         """Run equilibration steps, return final state."""
         if self.state is None:
@@ -178,6 +192,34 @@ class IsingModel:
             num_samples=n_samples,
         )
         return samples, obs
+
+    def time_series(self, n_sweeps: int, eq_steps: int = 1000) -> Dict[str, Array]:
+        """记录采样时间序列，用于自相关与混合性诊断。"""
+        if self.state is None:
+            self.initialize()
+        self.equilibriate(eq_steps)
+
+        energies = np.zeros(n_sweeps, dtype=np.float64)
+        mags_signed = np.zeros(n_sweeps, dtype=np.float64)
+        mags_abs = np.zeros(n_sweeps, dtype=np.float64)
+        acceptance = np.zeros(n_sweeps, dtype=np.float64)
+
+        current = self.state.copy()
+        for t in range(n_sweeps):
+            current, acc = self.metropolis_step_with_stats(current)
+            energies[t] = self.energy(current)
+            m = np.mean(current)
+            mags_signed[t] = m
+            mags_abs[t] = abs(m)
+            acceptance[t] = acc
+
+        self.state = current
+        return {
+            "energy": energies,
+            "magnetization_signed": mags_signed,
+            "magnetization_abs": mags_abs,
+            "acceptance": acceptance,
+        }
 
     def magnetization(self, state: Optional[Array] = None) -> float:
         if state is None:

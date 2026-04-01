@@ -85,6 +85,20 @@ pdflatex paper2_uq.tex
 pdflatex paper3_rg.tex
 ```
 
+## Auto-Build PDFs
+
+仓库现在带有 `.githooks/` 本地 hook：
+
+- `pre-commit`: 编译已 stage 的独立 `.tex` 文件，并自动 stage 对应 `.pdf`
+- `post-checkout` / `post-merge` / `post-commit`: 对 git 变更涉及的独立 `.tex` 重新生成 `.pdf`
+
+手工触发也可以：
+
+```bash
+python scripts/build_changed_tex.py --files paper3_rg.tex
+python scripts/build_changed_tex.py --staged --stage-pdfs
+```
+
 ##发表路线图
 
 | Timeline | Venue | Topic |

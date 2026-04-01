@@ -1,4 +1,4 @@
-\documentclass[12pt,a4paper]{article}
+\documentclass[12pt,a4paper]{memoir}
 
 \usepackage[utf8]{inputenc}
 \usepackage[T1]{fontenc}
@@ -12,36 +12,41 @@
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage[svgnames]{xcolor}
-\usepackage{fancyhdr}
 \usepackage{hyperref}
-\usepackage{natbib}
-\bibliographystyle{abbrvnat}
+\usepackage[numbers]{natbib}
+\bibliographystyle{plain}
+\usepackage{cleveref}
 
-\pagestyle{fancy}
-\fancyhead{}
-\fancyhead[L]{}
-\fancyhead[R]{\thepage}
-\fancyfoot{}
+% memoir native headers (fancyhdr conflicts with memoir)
+\makepagestyle{myheader}
+\makeevenhead{myheader}{\thepage}{}{}
+\makeoddhead{myheader}{}{}{\thepage}
+\pagestyle{myheader}
 
-\renewenvironment{abstract}{\small\textbf{Abstract.}}{}
+% memoir abstract: define after \begin{document}
 
 \theoremstyle{plain}
-\newtheorem{obs}{Observation}[section]
-\newtheorem{thrm}{Theorem}[section]
-\newtheorem{Proof}{Proof}[section]
+\newtheorem{obs}{Observation}[chapter]
+\newtheorem{thrm}{Theorem}[chapter]
+\newtheorem{Proof}{Proof}[chapter]
 
 
 \def\reals{{\mathbb R}}
 
+% memoir chapter style: plain
+\chapterstyle{plain}
+
 % ========== DOCUMENT ==========
 \begin{document}
 
-% ===== TITLE PAGE =====
-\begin{titlepage}
-    \centering
-    \vspace*{2cm}
+% memoir: abstract (memoir requires this after \begin{document})
+\abstractname*{Abstract.}
 
-    {\LARGE\bfseries Do Standard Neural Networks Learn\par}
+% ===== TITLE PAGE =====
+\thispagestyle{plain}
+\vspace*{2cm}
+\begin{center}
+    {\LARGE\bfseries Do Standard Neural Networks Learn\\par}
     {\LARGE\bfseries Block-Spin Renormalization Group Transformations?\par}
     \vspace{1.5cm}
 
@@ -79,8 +84,7 @@
         block-spin tasks that are well-approximated by locally linear projections.
         This does not contradict prior RBM-based findings (Mehta \& Schwab, 2014),
         which rely on an explicitly RG-structured inductive bias absent from MLPs.}
-\end{titlepage}
-
+\end{center}
 \clearpage
 \pagenumbering{roman}
 \tableofcontents
@@ -173,10 +177,10 @@ structure of physical law and the structure of learned representations.
         $T_\Lambda: \{S_i^{(L)}\} \mapsto \{S_i^{(L/\Lambda)}\}$ for the 2D Ising model?
 
         Here, ``learn'' means \emph{supervised regression}: we generate examples
-        of fine-grained spin configurations $S^{\rm (fine)}$ along with their
-        coarse-grained labels $S^{\rm (coarse)}$ computed via the majority-vote
+        of fine-grained spin configurations $S^{\mathrm{fine}}$ along with their
+        coarse-grained labels $S^{\mathrm{coarse}}$ computed via the majority-vote
         block-spin transformation (Eq~\ref{eq:block_spin}), and train the network
-        to predict $S^{\rm (coarse)}$ from $S^{\rm (fine)}$.  This is not an
+        to predict $S^{\mathrm{coarse}}$ from $S^{\mathrm{fine}}$.  This is not an
         unsupervised flow-based model nor a generative model; it is a direct
         function approximation task.  The question is whether a standard MLP
         architecture can represent the block-spin map without having it hardwired
@@ -366,8 +370,8 @@ set that the Onsager solution uniquely determines~\citep{goldenfeld1992,amit2005
 \label{sec:framework}
 
 We frame block-spin learning as a supervised regression problem:
-given spin configurations $S^{\rm (fine)} \in \{-1,+1\}^{L\times L}$,
-predict $S^{\rm (coarse)} \in \{-1,+1\}^{L/2\times L/2}$ from majority-vote
+given spin configurations $S^{\mathrm{fine}} \in \{-1,+1\}^{L\times L}$,
+predict $S^{\mathrm{coarse}} \in \{-1,+1\}^{L/2\times L/2}$ from majority-vote
 block-spin RG (Eq~\eqref{eq:block_spin}).
 
 It is important to contrast this supervised-regression framing with the
@@ -520,8 +524,8 @@ observed in our experiments.
 \label{sec:ising_exp}
 
 All experiments use Metropolis-Hastings Monte Carlo
-with $N_{\rm train}=500$,
-$N_{\rm test}=300$, equilibration $10^3$ steps.
+with $N_{\mathrm{train}}=500$,
+$N_{\mathrm{test}}=300$, equilibration $10^3$ steps.
 
 Metropolis-Hastings is the standard algorithm for sampling Ising model
 configurations at thermal equilibrium.  Starting from an initial spin
@@ -665,12 +669,12 @@ train models at lattice size $L$, evaluate test MSE at a different lattice
 size $L'$.  If the network has learned hierarchical RG-like scale-coupling,
 test error should increase monotonically with $|L - L'|$, and the network
 should outperform a linear baseline on cross-scale transfer.  We train at $L=8$
-using $N_{\rm train}=500$ configurations (independent Metropolis-Hastings chains
-at $\beta_c$), and evaluate at $L'=16$ using $N_{\rm test}=300$ configurations
+using $N_{\mathrm{train}}=500$ configurations (independent Metropolis-Hastings chains
+at $\beta_c$), and evaluate at $L'=16$ using $N_{\mathrm{test}}=300$ configurations
 generated from fresh chains at the same $\beta_c$.  We use $n=5$ seeds
 ($\{42,43,44,45,46\}$) for each model type.
 
-\textbf{Results.}  Table~\ref{tab:cross_scale} and Figure~\ref{fig:cross_scale}.
+\textbf{Results.}  Table~\ref{tab:cross_scale} (cross-scale transfer MSE degradation).
 
 \begin{table}[ht]
     \centering
@@ -742,7 +746,7 @@ read as partial support for R3.
 
 The Kolmogorov hypothesis for high-Reynolds turbulence predicts:
 \begin{equation}
-    E(k) \propto k^{-5/3}, \qquad k \in [k_{\rm diss}, k_{\rm forcing}],
+    E(k) \propto k^{-5/3}, \qquad k \in [k_{\mathrm{diss}}, k_{\mathrm{forcing}}],
     \label{eq:kolmogorov}
 \end{equation}
 in the inertial range~\citep{kolmogorov1941,frisch1995,pope2000}.
@@ -834,7 +838,7 @@ We offer three non-mutually-exclusive interpretations:
         that exploits the known block structure (e.g., via sparse weights or
         a convolutional structure) is sufficient.  The MLP has no way to
         know that the relevant features are block-local sums; it must discover
-        this from data.  With only $N_{\rm train}=500$ samples at $L=16$,
+        this from data.  With only $N_{\mathrm{train}}=500$ samples at $L=16$,
         the MLP may fail to discover the block structure and instead learn
         a different function that happens to fit the training set.  The
         linear model, with far fewer degrees of freedom, is more constrained
@@ -1090,8 +1094,8 @@ RG-specific inductive biases?  Future work should design tasks testing this
 distinction directly, as outlined in Section~\ref{sec:discussion}.
 
 \medskip\noindent
-\textbf{Reproducibility.}  All experiments use $N_{\rm train}=500$,
-$N_{\rm test}=300$, equilibration $10^3$ Metropolis-Hastings steps.
+\textbf{Reproducibility.}  All experiments use $N_{\mathrm{train}}=500$,
+$N_{\mathrm{test}}=300$, equilibration $10^3$ Metropolis-Hastings steps.
 Seeds and per-seed results are reported in Table~\ref{tab:ising_main}.
 The cross-scale experiment (Section~\ref{sec:cross_scale}) uses
 $n=5$ seeds $\{42,43,44,45,46\}$.  Code and raw data are available
@@ -1099,46 +1103,6 @@ at the repository.
 
 % ===== REFERENCES =====
 \clearpage
-\begin{thebibliography}{99}
-\bibitem[Wilson \& Kogut, 1974]{wilson1974renormalization} Wilson, K. G. (1974). The renormalization group. \textit{Rev. Mod. Phys.}, 47:773--840.
-\bibitem[Wilson \& Kogut, 1975]{wilson1975} Wilson, K. G. \& Kogut, J. (1975). The renormalization group and the $\epsilon$ expansion. \textit{Phys. Rep.}, 12:75--200.
-\bibitem[Mehta \& Schwab, 2014]{mehta2014renormalization} Mehta, P. \& Schwab, D. J. (2014). RG and deep learning. \textit{arXiv:1410.3831}.
-\bibitem[Pang et al., 2020]{pang2020neural} Pang, T. et al. (2020). Neural RG. \textit{Phys. Rev. E}, 101:063301.
-\bibitem[Kochlub et al., 2024]{kochlug} Kochlub, J. et al. (2024). Neural renormalization group. \textit{Nature Physics}, 20:1234--1245.
-\bibitem[Kolmogorov, 1941]{kolmogorov1941} Kolmogorov, A. N. (1941). Energy dissipation in locally isotropic turbulence. \textit{Dokl. Akad. Nauk SSSR}, 31:538--540.
-\bibitem[Leith, 1990]{leith1990} Leith, C. E. (1990). Stochastic backscatter modelling. \textit{J. Atmos. Sci.}, 47:2286--2293.
-\bibitem[Sagaut, 2006]{sagaut2006} Sagaut, P. (2006). \textit{Large Eddy Simulation for Incompressible Flows}. Springer.
-\bibitem[Kadanoff, 1966]{kadanoff1966} Kadanoff, L. P. (1966). Scaling laws for Ising model near $T_c$. \textit{Physics}, 2:263--272.
-\bibitem[Onsager, 1944]{onsager1944} Onsager, L. (1944). Crystal statistics I: A two-dimensional model with an order-disorder transition. \textit{Phys. Rev.}, 65:117--149.
-\bibitem[Goldenfeld, 1992]{goldenfeld1992} Goldenfeld, N. (1992). \textit{Lectures on Phase Transitions and the Renormalization Group}. Addison-Wesley.
-\bibitem[Zinn-Justin, 2021]{zinn2021} Zinn-Justin, J. (2021). \textit{Quantum Field Theory and Critical Phenomena} (5th ed.). Oxford University Press.
-\bibitem[Amit \& Martin-Mayor, 2005]{amit2005} Amit, D. J. \& Martin-Mayor, V. (2005). \textit{Field Theory, the Renormalization Group, and Critical Phenomena} (3rd ed.). World Scientific.
-\bibitem[Cardy, 1996]{cardy1996} Cardy, J. (1996). \textit{Scaling and Renormalization in Statistical Physics}. Cambridge University Press.
-\bibitem[Li \& Wang, 2018]{li2018neuralrg} Li, S.-H. \& Wang, L. (2018). Neural network renormalization group. \textit{Phys. Rev. Lett.}, 121:260601.
-\bibitem[Huang, 2013]{huang2013} Huang, K. (2013). \textit{Statistical Mechanics} (2nd ed.). Wiley.
-\bibitem[Parisi, 1988]{parisi1988} Parisi, G. (1988). \textit{Statistical Field Theory}. Addison-Wesley.
-\bibitem[LeBellac, 1991]{lebellac1991} Le Bellac, M. (1991). \textit{Quantum and Statistical Field Theory}. Oxford University Press.
-\bibitem[Itzykson \& Drouffe, 1989]{itzykson1989} Itzykson, C. \& Drouffe, J.-M. (1989). \textit{Statistical Field Theory} (2 vols.). Cambridge University Press.
-\bibitem[Peskin \& Schroeder, 1995]{peskin1995} Peskin, M. E. \& Schroeder, D. V. (1995). \textit{An Introduction to Quantum Field Theory}. Addison-Wesley.
-\bibitem[Srednicki, 2007]{srednicki2007} Srednicki, M. (2007). \textit{Quantum Field Theory}. Cambridge University Press.
-\bibitem[Frisch, 1995]{frisch1995} Frisch, U. (1995). \textit{Turbulence: The Legacy of A. N. Kolmogorov}. Cambridge University Press.
-\bibitem[Pope, 2000]{pope2000} Pope, S. B. (2000). \textit{Turbulent Flows}. Cambridge University Press.
-\bibitem[Germano et al., 1991]{germano1991} Germano, M. et al. (1991). A dynamic model for large-eddy simulation. \textit{Phys. Fluids A}, 3:1760--1765.
-\bibitem[Smagorinsky, 1963]{smagorinsky1963} Smagorinsky, J. (1963). General circulation experiments with the primitive equations. \textit{Mon. Weather Rev.}, 91:99--164.
-\bibitem[Moin \& Mahesh, 1998]{moin1998} Moin, P. \& Mahesh, K. (1998). Direct numerical simulation: A tool in turbulence research. \textit{Annu. Rev. Fluid Mech.}, 30:539--578.
-\bibitem[Liaw et al., 2025]{liaw2025} Liaw, S. et al. (2025). A renormalization group framework for scale-invariant feature learning in deep neural networks. \textit{AAAI Conf. on Artificial Intelligence}.
-\bibitem[Benedikter, 2024]{benedikter2024} Benedikter, N. (2024). \textit{The Renormalization Group}. Springer.
-\bibitem[Morningstar, 2024]{morningstar2024} Morningstar, A. et al. (2024). Machine learning and the real-space renormalization group. \textit{Rev. Mod. Phys.}, 96:031001.
-\bibitem[Kochlub \& Dumitrascu, 2024]{kochlub2024} Kochlub, J. \& Dumitrascu, A. (2024). Quantum-inspired neural renormalization group. \textit{Nature Phys.}, 20:1234--1245.
-\bibitem[Tsai et al., 2023]{tsai2023} Tsai, S.-H. et al. (2023). Kolmogorov-Arnold networks for turbulence modelling. \textit{J. Comput. Phys.}, 486:112098.
-\bibitem[Beck \& Flach, 2023]{beck2023} Beck, C. \& Flach, S. (2023). Scale invariance in neural networks. \textit{Phys. Rep.}, 1023:1--62.
-\bibitem[Yang et al., 2024]{yang2024} Yang, G.-R. et al. (2024). Feature learning in deep neural networks. \textit{Phys. Rev. E}, 109:024307.
-\bibitem[Dumitrascu et al., 2022]{dumitrascu2022} Dumitrascu, A. et al. (2022). Neural network subgrid-scale modeling for large-eddy simulation. \textit{Phys. Rev. Fluids}, 7:054601.
-\bibitem[Yuan et al., 2024]{yuan2024} Yuan, L. et al. (2024). Energy-conserving neural networks for turbulence closure modeling. \textit{J. Comput. Phys.}, 520:113454.
-\bibitem[Kadanoff et al., 1967]{kadanoff1967} Kadanoff, L. P. et al. (1967). Static phenomena near critical points: Theory and experiments. \textit{Rev. Mod. Phys.}, 39:395--431.
-\bibitem[Stanley, 1971]{stanley1971} Stanley, H. E. (1971). \textit{Introduction to Phase Transitions and Critical Phenomena}. Oxford University Press.
-\bibitem[Fisher, 1998]{fisher1998} Fisher, M. E. (1998). Renormalization group theory: Its basis and formulation in statistical physics. \textit{Rev. Mod. Phys.}, 70:653--682.
-\bibitem[Wegner, 1972]{wegner1972} Wegner, F. J. (1972). Corrections to scaling laws. \textit{Phys. Rev. B}, 5:4529--4536.
-\end{thebibliography}
+\bibliography{references}
 
 \end{document}

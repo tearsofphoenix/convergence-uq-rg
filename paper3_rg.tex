@@ -12,8 +12,9 @@
 \usepackage{booktabs}
 \usepackage{graphicx}
 \usepackage[font=small]{subcaption}
+\usepackage{tabularx}
 \usepackage[svgnames]{xcolor}
-\usepackage{hyperref}
+\usepackage[hypertexnames=false]{hyperref}
 \usepackage[numbers]{natbib}
 \bibliographystyle{plain}
 \usepackage{cleveref}
@@ -24,6 +25,7 @@
 \makeoddhead{myheader}{}{}{}
 \makeevenfoot{myheader}{}{\thepage}{}
 \makeoddfoot{myheader}{}{\thepage}{}
+\copypagestyle{plain}{myheader}
 \pagestyle{myheader}
 
 % memoir abstract: define after \begin{document}
@@ -40,11 +42,11 @@
 \thispagestyle{plain}
 \vspace*{2cm}
 \begin{center}
-    {\LARGE\bfseries Do Standard Neural Networks Learn\\par}
-    {\LARGE\bfseries Block-Spin Renormalization Group Transformations?\par}
+    {\LARGE\bfseries Do Standard Neural Networks Learn\\}
+    {\LARGE\bfseries Local Block-Spin Renormalization Group Maps?\par}
     \vspace{1.5cm}
 
-    {\Large\bfseries A Controlled Negative Result on the 2D Ising Model\par}
+    {\Large\bfseries A Controlled Negative Result on the 2D Ising Majority-Vote Task\par}
     \vspace{2cm}
 
     \begin{tabular}{ll}
@@ -55,43 +57,33 @@
 
     \parbox{0.9\textwidth}{\small
         \textbf{Abstract:} We investigate whether standard neural networks (MLP with GELU
-        activations) trained on physics problems exhibit \emph{RG-like behavior},
-        using the 2D Ising block-spin transformation as a controlled test.
-        The main supported benchmark in this revision uses a unified 10-seed
-        same-scale / transfer pipeline.  At the critical point $\beta_c$ and
-        lattice size $L=16$, the MLP achieves test MSE $0.62 \pm 0.65$,
-        while a single linear layer achieves $0.17 \pm 0.09$
-        on the same task; the linear model's lower mean error remains visible,
-        but the strength of the difference depends on the statistical test
+        activations) exhibit \emph{RG-like advantages} on the 2D Ising
+        majority-vote block-spin map, a deliberately narrow local benchmark
+        whose target is well approximated by a linear-threshold rule.  The main
+        supported evidence in this revision is a unified 10-seed same-scale
+        benchmark.  At the critical point $\beta_c$ and lattice size $L=16$,
+        the MLP achieves test MSE $0.62 \pm 0.65$, while a single linear layer
+        achieves $0.17 \pm 0.09$ on the same task; the linear model's lower mean
+        error is clear, but the strength of the difference is test-sensitive
         because the MLP variance is large (Welch $p=0.055$, Mann-Whitney
-        $p=0.026$, Cohen $d=-1.0$).  The linear model's
-        advantage is also pronounced in some off-critical same-scale settings.
-        This demonstrates that the block-spin target is approximately linear in
-        the spin variables at the critical point; the MLP's non-linear hidden
-        layers provide no advantage --- and considerable instability
-        (seed variance $0.43$) --- on this task.  We additionally ran a true
+        $p=0.026$, Cohen $d=-0.98$).  Some off-critical same-scale settings show
+        an even stronger linear advantage, e.g.\ $d=-8.36$ at
+        $(L,\beta)=(16,0.30)$ where both models have small seed variance.  These
+        results support a scoped negative claim: on this local majority-vote
+        task, extra fully connected non-linearity does not yield an RG-like
+        advantage over a linear baseline.  We additionally ran a true
         whole-lattice tiled transfer experiment under a reduced exploratory
-        budget; it is methodologically informative but not decisive, and its results are
-        highly protocol-sensitive and do not support a stable monotone
-        scale-degradation law.  Dedicated sampler diagnostics further show
-        strong critical slowing down, with
+        budget; it is methodologically informative but not decisive, and it does
+        not exhibit a stable monotone scale-degradation law.  Dedicated sampler
+        diagnostics further show strong critical slowing down, with
         $\tau_{\mathrm{int}}(|M|)\approx 37$ sweeps at $(L,\beta)=(16,\beta_c)$,
         so all cross-scale claims are treated as exploratory rather than
-        decisive evidence for RG-like behavior.
-        A translation-equivariant CNN (with block-spin inductive bias) achieves
-        near-zero MSE in almost all tested $(L,\beta)$ combinations, with the
-        notable exception of $L=4$, $\beta=0.60$, showing that locality and
-        translation structure are sufficient to learn the supervised
-        block-spin map, but not by themselves evidence of RG-flow learning.  A
-        compressed non-evidentiary turbulence feasibility note is retained in
-        the appendix.
-        We do not use the earlier random-label sanity check as a primary
-        quantitative claim because it was generated under a separate fixed-split
-        3-seed pilot protocol.
-        This paper's central contribution is a \emph{scoped} negative result:
-        in this local majority-vote block-spin setting, standard deep
-        architectures do not exhibit RG-like advantages on block-spin tasks
-        that are well-approximated by locally linear projections.} 
+        decisive evidence for RG-like behavior.  A translation-equivariant CNN
+        reaches near-zero MSE in most tested settings, but not all, showing that
+        locality and translation structure are sufficient to learn the
+        supervised block-spin map, but are not by themselves evidence of RG-flow
+        learning.  Random-label pilots and a compressed turbulence feasibility
+        note are retained only in the appendix.} 
 \end{center}
 \clearpage
 \pagenumbering{roman}
@@ -109,7 +101,7 @@ describes how physical systems behave across scales.  At a critical point,
 the RG transformation converges to a fixed point; the approach to this
 fixed point is governed by critical exponents~\citep{goldenfeld1992,zinn2021}.
 
-Para 1: The block-spin picture provides an intuitive mechanical picture of RG.
+The block-spin picture provides an intuitive mechanical picture of RG.
 Imagine a lattice of spins, each pointing either up (+1) or down (-1).  The RG
 transformation groups nearby spins into blocks --- for a $2\times2$ block
 size $\Lambda$, four adjacent spins become one coarse-grained spin.  To
@@ -121,7 +113,7 @@ scales generates the RG flow.  At each step the system is described by fewer
 degrees of freedom but should represent the same physics at longer
 wavelengths.
 
-Para 2: At the \emph{critical temperature} $\beta_c$, something remarkable
+At the \emph{critical temperature} $\beta_c$, something remarkable
 happens: fluctuations occur at \emph{all} scales simultaneously.  A spin at
 the critical point is correlated with other spins at all distances ---
 correlation functions decay as a power law, not exponentially.  There is no
@@ -131,7 +123,7 @@ points live: at $\beta_c$, the system looks statistically the same no matter
 what magnification you use.  Zoom in on a critical system and you see the same
 pattern of large and small fluctuations you saw before zooming.
 
-Para 3: The "fixed point" in RG language is a system that is \emph{invariant}
+The "fixed point" in RG language is a system that is \emph{invariant}
 under the coarse-graining transformation.  If you apply the block-spin
 transformation to a system already at the fixed point, you get back a system
 with the same statistical properties --- same correlation functions up to a
@@ -142,7 +134,7 @@ the exponents of these power laws are the critical exponents.  They are
 universal: they depend only on the dimensionality and symmetry of the order
 parameter, not on the microscopic lattice details.
 
-Para 4: The question of whether neural networks implement RG-like
+The question of whether neural networks implement RG-like
 computations is therefore a question about whether they discover, through
 training alone, this hierarchical coarse-graining procedure.  If a standard
 architecture trained on physical data implicitly learns to block-average
@@ -152,13 +144,17 @@ of scale-invariant reasoning that RG formalizes.
 The hypothesis that neural networks might \emph{implement} RG-like computations
 was proposed by~\citep{mehta2014renormalization}, who observed that restricted
 Boltzmann machines learn effective couplings matching RG flow in the 2D Ising
-model.  Subsequent work formalized this as ``Neural RG''~\citep{pang2020neural,
-li2018neuralrg,kochlug}, with explicit RG-motivated architectures.
+model.  Subsequent work formalized this idea through information-theoretic and
+explicit coarse-graining constructions~\citep{kochlug,li2018neuralrg,
+pang2020neural,hu2020holographic,bachtis2021}.
 
 We take a different stance: can \emph{standard} architectures (MLP with GELU,
 no explicit RG structure) learn block-spin transformations, and do they show
-quantifiable signatures of RG-like behavior?  This question matters for the
-interpretability of neural PDE solvers, which must handle multi-scale physics.
+quantifiable signatures of RG-like behavior?  Our emphasis is deliberately
+narrow: the target is the local majority-vote block-spin map, not a general
+non-linear RG flow.  This question still matters for the interpretability of
+learned coarse-graining and surrogate models, but any conclusion must be read
+at that same scoped level.
 
 The broader significance extends beyond the Ising model.  If standard neural
 networks already implement RG-like computations, this would partially explain
@@ -197,13 +193,10 @@ structure of physical law and the structure of learned representations.
     \item Is this learning statistically meaningful (vs. random baselines)?
 
         Any sufficiently expressive model can memorize a finite training set.
-        Our original design therefore included a random-label sanity check:
-        train the same MLP on identical fine-grained inputs but with
-        independently shuffled coarse labels.  If the correct-label model does
-        better than this control, the gap measures how much of the task is
-        genuine block-spin structure rather than generic memorization.  In the
-        present revision that control remains appendix-level because it was
-        produced under a separate pilot protocol.
+        Our original design therefore included a random-label sanity check.
+        In the present revision that control remains appendix-level because it
+        was produced under a separate 3-seed pilot protocol and is not part of
+        the benchmark of record.
 
     \item Does the learning quality degrade with scale distance, as RG theory predicts?
 
@@ -217,7 +210,10 @@ structure of physical law and the structure of learned representations.
         qualitatively distinct from within-scale learning (which merely confirms
         the network can represent the block-spin map at a single scale) and
         requires the network to have discovered the \emph{hierarchical}
-        structure of scale-coupling, not just a local majority-vote rule.
+        structure of scale-coupling, not just a local majority-vote rule.  In
+        the present revision we therefore treat monotone degradation as a
+        hypothesis whose operationalization remains unstable for the current
+        local-rule benchmark, rather than as a settled diagnostic.
 
     \item Does the framework extend to a neural turbulence closure reproducing
         Kolmogorov spectrum scaling?
@@ -295,8 +291,8 @@ primary quantitative R1 claim from the separate random-label pilot.  R3
 evidence for any criterion.
 
 The main negative finding is: a linear model substantially outperforms
-the MLP on the same block-spin task, implying the majority-vote
-transformation at $L=16$ is approximately linear.  This is a precise
+the MLP on the same block-spin task, consistent with the majority-vote
+transformation being dominated by a local linear-threshold rule.  This is a precise
 negative result scoped specifically to \emph{locally linear block-spin
 tasks}.  It does not imply that standard deep architectures cannot
 learn RG-like computations in general; that would require testing on
@@ -512,14 +508,14 @@ empirical question, answered by the benchmark in Section~\ref{sec:ising_exp}.
 \section{Experiments: 2D Ising Model}
 \label{sec:ising_exp}
 
-All experiments use Metropolis-Hastings Monte Carlo
-with $N_{\mathrm{train}}=500$,
-$N_{\mathrm{test}}=300$, equilibration $10^3$ steps.
+All experiments use single-spin Metropolis-Hastings Monte Carlo with
+$N_{\mathrm{train}}=500$, $N_{\mathrm{test}}=300$, equilibration $10^3$
+steps~\citep{metropolis1953,hastings1970}.
 
 Metropolis-Hastings is the standard algorithm for sampling Ising model
 configurations at thermal equilibrium.  Starting from an initial spin
-configuration, the algorithm proposes flipping a single spin (or a cluster
-of spins), accepts the flip with probability $\min(1, \exp(-\Delta E/T))$ where
+configuration, the algorithm proposes flipping a single spin, accepts the flip
+with probability $\min(1, \exp(-\Delta E/T))$ where
 $\Delta E$ is the energy change, and rejects it otherwise.  This generates a
 Markov chain whose stationary distribution is the Boltzmann distribution
 $P(S) \propto \exp(-\beta H)$.  The equilibration period of $10^3$ steps
@@ -538,6 +534,9 @@ $\tau_{\mathrm{int}}(|M|)=9.6 \pm 3.0$ sweeps at $(L,\beta)=(8,\beta_c)$, and
 $18.8 \pm 7.3$ and $37.0 \pm 15.1$ sweeps at $(16,\beta_c)$, whereas away
 from criticality the corresponding values remain near $2$--$3$ sweeps.  This
 quantifies the critical slowing-down caveat rather than leaving it qualitative.
+Cluster algorithms such as Swendsen-Wang and Wolff would generally be better
+suited to this regime, but they are not used in the current benchmark
+implementation~\citep{swendsen1987,wolff1989,sokal1997,newman1999,binder2010}.
 The appropriate interpretation of the reported error bars and significance tests
 is therefore that of a finite-budget benchmark under correlated sampling,
 rather than thermodynamic-ensemble-level inference under effectively
@@ -553,16 +552,15 @@ three protocol tiers used in this revision.
     \centering
     \caption{Evidence tiers used in the revised manuscript.}
     \small
-    \resizebox{\textwidth}{!}{%
-    \begin{tabular}{llll}
+    \begin{tabular}{@{}p{0.20\textwidth} p{0.28\textwidth} p{0.22\textwidth} p{0.22\textwidth}@{}}
         \toprule
         \textbf{Tier} & \textbf{Protocol} & \textbf{Budget} & \textbf{Role} \\
         \midrule
         Main benchmark & Same-scale Ising benchmark & $n=10$, $500/300$, 200 epochs & Primary evidence \\
         Exploratory transfer & Whole-lattice tiled transfer & $n=3$, $200/100$, 40 epochs & Methodological clarification \\
-        Appendix diagnostics & Pilot / spectral / turbulence / mixing & mixed auxiliary budgets & Non-primary support \\
+        Appendix diagnostics & Pilot / turbulence / mixing & mixed auxiliary budgets & Non-primary support \\
         \bottomrule
-    \end{tabular}}
+    \end{tabular}
     \label{tab:evidence_tiers}
 \end{table}
 
@@ -589,6 +587,7 @@ tables below.
         $\pm$ std dev over seeds $\{42,\dots,51\}$.  This is the main benchmark
         of record and is not directly comparable in evidence strength to the
         reduced-budget exploratory transfer table below.}
+    \resizebox{\textwidth}{!}{%
     \begin{tabular}{lcccc}
         \toprule
         \textbf{Model} & \textbf{$\beta$} & \textbf{$L=4$ MSE} & \textbf{$L=8$ MSE} & \textbf{$L=16$ MSE (same-$L$)} \\
@@ -606,7 +605,7 @@ tables below.
         RGMLP   & $\beta_c$ & $0.1542 \pm 0.0672$  & $0.5402 \pm 0.3147$  & $1.0646 \pm 1.0284$  \\
         RGMLP   & 0.60  & $0.6601 \pm 1.3218$  & $1.7935 \pm 1.4374$  & $0.9792 \pm 1.2162$  \\
         \bottomrule
-    \end{tabular}
+    \end{tabular}}
     \label{tab:ising_main}
 \end{table}
 
@@ -614,8 +613,9 @@ tables below.
     \centering
     \includegraphics[width=0.82\textwidth]{outputs/rg_bench/cross_scale/figures/model_comparison_bars.png}
     \caption{Within-scale Ising block-spin performance across $\beta$.
-        The CNN reaches near-zero MSE across the tested $(L,\beta)$ combinations,
-        while the linear model matches or outperforms the MLP at the critical point.}
+        The CNN reaches near-zero MSE in most tested settings, with visible
+        degradation only in the low-$L$ ordered cases at $\beta=0.60$, while
+        the linear model matches or outperforms the MLP at the critical point.}
     \label{fig:block_spin_models}
 \end{figure}
 
@@ -633,11 +633,12 @@ Key findings from Table~\ref{tab:ising_main}:
         same-scale advantage.
 
     \item[(ii)] \textbf{Error depends strongly on phase and lattice size.}
-        At $L=16$, both models are easiest in the ordered phase
-        ($0.1178 \pm 0.1695$ for MLP and $0.0106 \pm 0.0099$ for Linear at
-        $\beta=0.60$), hardest in the disordered phase for the MLP
-        ($0.6006 \pm 0.0287$ at $\beta=0.30$), and most variable at the critical
-        point.  The temperature dependence in Figure~\ref{fig:temperature_dependence}
+        At $L=16$, the linear model is easiest in the ordered phase
+        ($0.0106 \pm 0.0099$ at $\beta=0.60$), while the MLP remains high in
+        both the disordered and critical regimes
+        ($0.6006 \pm 0.0287$ at $\beta=0.30$ and
+        $0.6249 \pm 0.6456$ at $\beta_c$).  The temperature dependence in
+        Figure~\ref{fig:temperature_dependence}
         shows that the critical regime carries the largest seed-to-seed
         instability.  In particular, the disordered same-scale setting
         $(L,\beta)=(16,0.30)$ yields an extreme effect size
@@ -739,8 +740,8 @@ for the present local-rule setting the original R2 formulation is not yet a
 stable operational discriminator.  We therefore keep R2 unresolved.
 
 \paragraph{Auxiliary analyses moved to the appendix.}
-Legacy pilot sanity checks, sampler diagnostics, the spectral-radius note, and
-the turbulence feasibility experiment are reported in
+Legacy pilot sanity checks, sampler diagnostics, and the turbulence
+feasibility experiment are reported in
 Appendices~\ref{app:mixing}--\ref{app:turbulence} and are not used as primary
 main-text evidence.
 
@@ -780,8 +781,8 @@ We offer three non-mutually-exclusive interpretations:
 
     \item[(iii)] \textbf{Training dynamics:} The MLP may converge to
         different local minima across seeds, leading to high variance.
-        The unified benchmark records standard deviations of $0.427$ for the
-        MLP and $0.094$ for the linear model at $(L,\beta)=(16,\beta_c)$.
+        The unified benchmark records standard deviations of $0.646$ for the
+        MLP and $0.086$ for the linear model at $(L,\beta)=(16,\beta_c)$.
         This instability is itself part of the negative result: the MLP's
         added flexibility manifests as optimization variance rather than as a
         reliable accuracy advantage.
@@ -832,154 +833,84 @@ carefully than in the present benchmark.
 \section{Related Work}
 \label{sec:related}
 
-Mehta and Schwab~\citep{mehta2014renormalization} first observed that
-restricted Boltzmann machines learn RG-like couplings on the Ising model.
-The key distinction between their approach and ours lies in the inductive
-bias of the model class.  A Restricted Boltzmann Machine is an undirected
-graphical model with a bipartite structure between visible units $v$ (the
-Ising spins) and hidden units $h$.  Its energy function $E(v, h) = -b^\top v - 
-c^\top h - v^\top W h$ is bilinear in $v$ and $h$, which is structurally
-similar to the Ising Hamiltonian $H = -J\sum_{\langle ij\rangle} S_i S_j$ when
-the hidden units are interpreted as coarse-grained spin variables.  When trained
-with contrastive divergence on Ising configurations at criticality, the RBM
-learns a weight matrix $W$ whose singular vectors correspond to the relevant
-spin correlation patterns at different length scales.  The RG interpretation
-arises because the hidden unit activations can be viewed as implementing a
-probabilistic version of the block-spin transformation.  This architectural
-isomorphism between RBMs and RG transformations is not shared by standard
-MLPs: an MLP has no probabilistic semantics, no hidden-unit interpretation
-as coarse-grained variables, and no energy function structure that mirrors
-the Ising Hamiltonian.  Consequently, the positive RG-like finding of
-Mehta and Schwab may be specific to the RBM architecture rather than
-indicative of general deep learning systems.
+There are now two largely separate literatures around machine learning and
+statistical mechanics.  One uses supervised or unsupervised learning to detect
+phases, order parameters, and transition points in classical or quantum lattice
+systems~\citep{wang2016,carrasquilla2017,vannieuwenburg2017,hu2017,
+wetzel2017,wangzhai2017,beach2018,zhang2019percolation,
+rodrigueznieva2019,dcn2018}.  More interpretable variants ask what features the
+model has actually learned, for example through kernel methods, explicit order
+parameters, or symmetry diagnostics~\citep{ponte2017,wetzelscherzer2017,
+greitemann2019,liu2019interpretable,decelle2019}.  Our benchmark is narrower
+than that literature: we do not ask whether a network can detect a phase
+transition, but whether it gains a specifically RG-like advantage on a known
+coarse-graining map.
 
-Neural RG was formalized by Pang et al.\@\citep{pang2020neural} and
-Li and Wang~\citep{li2018neuralrg}, who introduced variational and
-real-space approaches.  Pang et al.\@ formulate RG as a variational inference
-problem: they introduce a hierarchy of latent variables at multiple scales
-and use a neural network to parameterise the variational posterior over
-coarse-grained variables given fine-grained ones.  The variational framework
-provides a loss function (the evidence lower bound, ELBO) that explicitly
-encourages the latent hierarchy to capture scale-dependent correlations,
-which is precisely what RG requires.  Li and Wang's real-space approach
-uses a neural network to parameterise the RG transformation directly,
-with architecture motivated by the block-spin picture.  Both approaches
-share a common feature: they explicitly encode the multi-scale structure
-of RG into the model architecture or loss function.  Our paper, by contrast,
-tests whether \emph{standard} MLPs trained only with MSE loss (no variational
-structure, no explicit multi-scale hierarchy) can discover RG-like
-computations from data alone.  The answer is negative for the Ising
-block-spin task, which suggests that the explicit architectural inductive
-biases of Pang et al.\@ and Li and Wang are indeed necessary.
+A second literature aims more directly at RG itself.  Mehta and
+Schwab~\citep{mehta2014renormalization} connected RBMs with variational RG;
+Koch-Janusz and Ringel~\citep{kochlug} recast coarse graining in terms of
+mutual information; Li and Wang~\citep{li2018neuralrg}, Pang et
+al.~\citep{pang2020neural}, Hu et al.~\citep{hu2020holographic}, and Bachtis
+et al.~\citep{bachtis2021} proposed architectures or objectives that encode
+multi-scale structure explicitly.  Those papers are valuable precisely because
+their model classes are RG-motivated.  Our question is stricter and more
+negative-result oriented: if one removes the explicit RG inductive bias and
+compares against strong linear baselines, does a standard fully connected MLP
+still exhibit an RG-like advantage on the supervised block-spin task?
 
-Kochlub et al.\@\citep{kochlug} demonstrated neural RG on quantum-inspired
-circuits; their approach uses a quantum circuit ansatz that is naturally
-interpreted as a sequence of RG steps, making the connection to RG explicit
-and mathematically precise.  Liaw et al.\@\citep{liaw2025} studied
-scale-invariant feature learning in deep networks, showing that certain
-training regimes encourage representations that are invariant to scale
-transformations of the input.  Their approach differs from ours in that
-they study the \emph{representational geometry} of trained networks
-(invariance to scale transformations) rather than supervised prediction
-of coarse-grained variables.  Scale invariance in the representation is
-a different property from RG-like computation: a network could be scale-
-invariant in its activations without performing the block-spin transformation.
-Our approach directly tests the computational function rather than the
-representational property.
-
-Our paper differs by: (1) using \emph{standard} MLP architectures
-(no explicit RG structure); (2) centering the quantitative claim on a unified
-same-scale benchmark with explicit linear and CNN baselines; (3) reporting a
-true tiled whole-lattice transfer diagnostic rather than an isolated patch-only
-test; (4) documenting the linear-model advantage as the key negative result;
-and (5) moving pilot/turbulence material to the appendix so the main line
-stays focused on the Ising benchmark.
+Finally, our treatment of sampling is informed by the Monte Carlo literature.
+Local Metropolis updates~\citep{metropolis1953,hastings1970} are known to slow
+dramatically near criticality, while cluster methods such as Swendsen-Wang and
+Wolff mitigate this problem~\citep{swendsen1987,wolff1989,sokal1997,
+newman1999,binder2010}.  General reviews of machine learning in physics provide
+the broader context for why careful benchmark design matters here
+too~\citep{carleo2019,mehta2019}.  Relative to that prior work, the main
+contribution of the present paper is methodological: a matched-budget benchmark
+that keeps same-scale evidence, exploratory transfer, and sampler diagnostics
+explicitly separated, and that shows how easily broad RG language can outrun
+what a local majority-vote task actually supports.
 
 % ===== SECTION 8: CONCLUSION =====
 \section{Conclusion}
 \label{sec:conclusion}
 
-This paper investigates whether standard MLPs exhibit RG-like advantages
-on block-spin RG tasks --- and finds a scoped negative result.
-Using the 2D Ising model as a controlled testbed, the revised manuscript
-supports a narrower and internally consistent conclusion:
+This revision supports a scoped negative result.  In the unified 10-seed
+same-scale benchmark, the linear baseline has lower mean test MSE than the MLP
+at the critical point: at $(L,\beta)=(16,\beta_c)$ the MLP reaches
+$0.6249 \pm 0.6456$, while Linear reaches $0.1736 \pm 0.0862$.  The mean
+ordering favors the linear model, but the strength of the difference depends on
+the test because the MLP variance is large (Welch $p=0.055$, Mann-Whitney
+$p=0.026$, Cohen's $d=-0.98$).  Across the benchmark as a whole, no setting
+shows a robust MLP advantage over the linear baseline.  The supported claim is
+therefore specific: on majority-vote block-spin tasks dominated by a local
+linear-threshold structure, standard fully connected depth does not provide an
+RG-like advantage over simpler linear projections.
 
-\medskip\noindent
-\textbf{1. Same-scale benchmark:} In the unified 10-seed benchmark,
-the linear baseline has lower mean test MSE than the MLP at the critical
-point.  At $(L,\beta)=(16,\beta_c)$ the MLP reaches
-$0.6249 \pm 0.6456$, while Linear reaches
-$0.1736 \pm 0.0862$.  The mean ordering favors the linear model, but the
-strength of the difference depends on the statistical test because the MLP
-variance is large (Welch $p=0.055$, Mann-Whitney $p=0.026$, Cohen's
-$d=-0.98$).  Across the same-scale benchmark as a whole, however, no setting
-shows a robust MLP advantage over the linear baseline.
+The exploratory whole-lattice tiled transfer and the sampler diagnostics mainly
+clarify methodology rather than add parallel primary evidence.  At $\beta_c$,
+the tiled transfer protocol does not exhibit monotone degradation with scale
+distance: $8\to16$ and even $4\to16$ remain competitive with the same-budget
+$16\to16$ baseline, and linear models stay competitive throughout.  At the same
+time, the critical-point sampler diagnostics show substantial autocorrelation,
+with $\tau_{\mathrm{int}}(E)=18.8 \pm 7.3$ and
+$\tau_{\mathrm{int}}(|M|)=37.0 \pm 15.1$ sweeps at $(16,\beta_c)$, implying
+effective sample sizes of only about $80$ and $41$ for the diagnostic run.  We
+therefore treat R2 as unresolved rather than falsified, and we do not promote
+the appendix-level turbulence note or the older random-label pilot to primary
+evidence.
 
-\medskip\noindent
-\textbf{Methodological significance.}  The broader lesson is not that deep
-models can never exhibit RG-like structure, but that such claims must be tied
-to one internally consistent protocol, compared against linear baselines, and
-matched to an experiment that really tests the stated transfer property.
-
-\medskip\noindent
-\textbf{2. Whole-lattice tiled transfer:} In an exploratory but true
-whole-lattice transfer experiment ($n=3$, $N_{\mathrm{train}}=200$, 40 epochs),
-source-scale predictors are tiled over larger target lattices.  At $\beta_c$,
-$8\to16$ gives $0.293 \pm 0.190$ for MLP and $0.244 \pm 0.129$ for Linear,
-while same-budget same-$L=16$ gives $0.463 \pm 0.174$ and $0.287 \pm 0.170$.
-The even longer-range $4\to16$ transfer remains competitive
-($0.141 \pm 0.107$ for MLP, $0.222 \pm 0.113$ for Linear), so monotone
-degradation with scale distance is not observed.  Linear baselines remain
-competitive throughout, so we still do not obtain a stable positive RG-like
-transfer signature.  Because this transfer table is reduced-budget and
-exploratory, we treat it primarily as a methodological clarification of how
-protocol-sensitive R2 is, not as evidence on the same footing as the main
-10-seed same-scale benchmark.  In particular, this exploratory whole-lattice
-result should not be read as positive RG-like evidence; it more likely reflects
-the operational ambiguity of the current transfer protocol.
-
-\medskip\noindent
-\textbf{3. Sampling diagnostics and exploratory turbulence:} Dedicated
-autocorrelation diagnostics confirm that critical slowing down is material:
-at $(L,\beta)=(16,\beta_c)$ we measure
-$\tau_{\mathrm{int}}(E)=18.8 \pm 7.3$ and
-$\tau_{\mathrm{int}}(|M|)=37.0 \pm 15.1$ sweeps, compared with
-order-one values away from criticality.  The turbulence closure note gives
-$\alpha = -1.30 \pm 0.05$ versus Kolmogorov $-5/3 \approx -1.67$.
-Both diagnostics remain exploratory and are not used as evidence for a
-positive RG-like finding.
-
-\medskip\noindent
-\textbf{Scope of the negative result.}  The supported negative claim is
-therefore specific: on majority-vote block-spin tasks that are dominated by a
-local linear-threshold structure, standard MLPs do not outperform simpler
-linear baselines.  This does not rule out positive results on RG tasks with
-genuinely non-linear couplings or on architectures with explicit multi-scale
-inductive bias.
-
-\medskip\noindent
-\textbf{Protocol clarification.}  We do not use the earlier random-label
-sanity check as a primary quantitative claim in this revision, because it was
-generated under a separate fixed-split 3-seed pilot protocol.  All main tables
-and figures now derive from the unified same-scale benchmark in
-\path{outputs/rg_bench/cross_scale/} together with the exploratory whole-lattice
-and mixing outputs in \path{outputs/rg_bench/whole_lattice_transfer/} and
-\path{outputs/rg_bench/mixing_analysis/}.
-
-\medskip\noindent
-\textbf{Reproducibility.}  The main same-scale benchmark, exploratory
-whole-lattice transfer, and mixing diagnostics are all sourced from separate
-output directories and are not numerically mixed.  Legacy pilot ablations are
-kept separate for appendix-only sanity checks.
-
-\medskip\noindent
-\textbf{What a convincing positive result would require.}  A persuasive
-positive benchmark for RG-like transfer should satisfy at least four conditions:
-matched training budget across same-scale and transfer experiments, a true
-multi-scale chain (e.g.\ $4\to8\to16$ together with direct $4\to16$ and
-$8\to16$ comparisons), autocorrelation-aware sampling with reported effective
-sample sizes, and a transfer regime in which competitive linear baselines
-actually fail.
+The durable contribution of the paper is thus methodological.  A convincing
+positive claim of RG-like computation should align matched training budgets,
+true multi-scale chains (for example $4\to8\to16$ together with direct
+$4\to16$ and $8\to16$ transfer), autocorrelation-aware sampling, and a regime
+in which competitive linear baselines actually fail.  All main tables in this
+revision are sourced from the separated raw outputs in
+\path{outputs/rg_bench/cross_scale/},
+\path{outputs/rg_bench/whole_lattice_transfer/}, and
+\path{outputs/rg_bench/mixing_analysis/}, with the legacy pilot outputs kept
+appendix-only.  On the present local majority-vote block-spin benchmark, that
+combination of evidence does not support a claim that standard MLPs learn
+RG-like advantages.
 
 \appendix
 
@@ -1034,6 +965,7 @@ $n=3$ seeds and a smaller training budget than the main benchmark.
         \texttt{whole\_lattice\_transfer/summary.json}.  All entries use
         $n=3$ seeds, $N_{\mathrm{train}}=200$, $N_{\mathrm{test}}=100$, and
         40 epochs.}
+    \resizebox{\textwidth}{!}{%
     \begin{tabular}{llccc}
         \toprule
         \textbf{$\beta$} & \textbf{Source $\to$ Target} & \textbf{MLP} & \textbf{Linear} & \textbf{Comment} \\
@@ -1050,7 +982,7 @@ $n=3$ seeds and a smaller training budget than the main benchmark.
         $0.60$ & $4\to16$  & $0.016 \pm 0.011$ & $0.046 \pm 0.012$ & Strong model asymmetry \\
         $0.60$ & $8\to16$  & $0.016 \pm 0.013$ & $0.017 \pm 0.012$ & Linear near same-$L=16$ \\
         \bottomrule
-    \end{tabular}
+    \end{tabular}}
     \label{tab:whole_lattice_all_beta}
 \end{table}
 
@@ -1063,17 +995,6 @@ now live in \path{outputs/rg_bench/pilot_ablation/}.  They remain useful as
 sanity checks, but they are excluded from the main quantitative tables because
 their data generation, seeding, and training budgets do not match the unified
 same-scale benchmark.
-
-\section{Spectral-Radius Diagnostic}
-\label{app:spectral_radius}
-
-We retain the encoder spectral-radius measurement only as a diagnostic note.
-For MLPs trained at 10 temperatures $\beta \in [0.30,0.60]$ and $L=16$, the
-largest singular value of the first encoder layer lies in
-$\rho \in [2.88, 3.42]$, far from a putative RG fixed-point value $\rho=1$.
-Because the learned weight matrix is simply the first layer of a supervised MLP
-optimized for MSE loss, we do not interpret this quantity as a linearized RG
-operator; it is included only for completeness.
 
 \section{Exploratory Turbulence Note}
 \label{app:turbulence}

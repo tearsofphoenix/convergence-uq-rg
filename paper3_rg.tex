@@ -42,11 +42,11 @@
 \thispagestyle{plain}
 \vspace*{2cm}
 \begin{center}
-    {\LARGE\bfseries Do Standard Neural Networks Learn\\}
-    {\LARGE\bfseries Local Block-Spin Renormalization Group Maps?\par}
+    {\LARGE\bfseries Do Standard Neural Networks Show\\}
+    {\LARGE\bfseries RG-like Advantages on Local Block-Spin Maps?\par}
     \vspace{1.5cm}
 
-    {\Large\bfseries A Controlled Negative Result on the 2D Ising Majority-Vote Task\par}
+    {\Large\bfseries A Benchmark-Design Negative Result on the 2D Ising Majority-Vote Task\par}
     \vspace{2cm}
 
     \begin{tabular}{ll}
@@ -56,34 +56,31 @@
     \vspace{2cm}
 
     \parbox{0.9\textwidth}{\small
-        \textbf{Abstract:} We investigate whether standard neural networks (MLP with GELU
-        activations) exhibit \emph{RG-like advantages} on the 2D Ising
-        majority-vote block-spin map, a deliberately narrow local benchmark
-        whose target is well approximated by a linear-threshold rule.  The main
-        supported evidence in this revision is a unified 10-seed same-scale
-        benchmark.  At the critical point $\beta_c$ and lattice size $L=16$,
-        the MLP achieves test MSE $0.62 \pm 0.65$, while a single linear layer
-        achieves $0.17 \pm 0.09$ on the same task; the linear model's lower mean
-        error is clear, but the strength of the difference is test-sensitive
-        because the MLP variance is large (Welch $p=0.055$, Mann-Whitney
-        $p=0.026$, Cohen $d=-0.98$).  Some off-critical same-scale settings show
-        an even stronger linear advantage, e.g.\ $d=-8.36$ at
-        $(L,\beta)=(16,0.30)$ where both models have small seed variance.  These
-        results support a scoped negative claim: on this local majority-vote
-        task, extra fully connected non-linearity does not yield an RG-like
-        advantage over a linear baseline.  We additionally ran a true
-        whole-lattice tiled transfer experiment under a reduced exploratory
-        budget; it is methodologically informative but not decisive, and it does
-        not exhibit a stable monotone scale-degradation law.  Dedicated sampler
-        diagnostics further show strong critical slowing down, with
-        $\tau_{\mathrm{int}}(|M|)\approx 37$ sweeps at $(L,\beta)=(16,\beta_c)$,
-        so all cross-scale claims are treated as exploratory rather than
-        decisive evidence for RG-like behavior.  A translation-equivariant CNN
-        reaches near-zero MSE in most tested settings, but not all, showing that
-        locality and translation structure are sufficient to learn the
-        supervised block-spin map, but are not by themselves evidence of RG-flow
-        learning.  Random-label pilots and a compressed turbulence feasibility
-        note are retained only in the appendix.} 
+        \textbf{Abstract:} We present a controlled benchmark-design test of
+        whether standard neural networks exhibit \emph{RG-like advantages} on a
+        local block-spin task.  The benchmark is the 2D Ising majority-vote
+        coarse-graining map, whose target is well approximated by a
+        linear-threshold rule.  Our primary evidence is a unified 10-seed
+        same-scale benchmark regenerated with Wolff cluster sampling.  At the
+        critical point $\beta_c$ and lattice size $L=16$, the MLP achieves test
+        MSE $0.226 \pm 0.011$, while a single linear layer achieves
+        $0.108 \pm 0.010$; this ordering is statistically unambiguous (Welch
+        $p=1.4\times10^{-15}$, Mann-Whitney $p=1.8\times10^{-4}$, Cohen
+        $d=-11.46$).  Off-critical same-scale settings show the same qualitative
+        pattern.  The resulting negative claim is deliberately scoped: once
+        critical slowing down is removed as the dominant caveat, extra fully
+        connected nonlinearity still does not yield an RG-like advantage on this
+        local majority-vote task.  A reduced-budget whole-lattice tiled transfer
+        diagnostic remains protocol-sensitive and does not produce a stable
+        monotone scale-degradation law, so cross-scale claims remain unresolved.
+        Appendix-level diagnostics clarify, but do not overturn, this picture:
+        an XY-model circular-mean pilot shows that linear baselines cease to
+        dominate uniformly once the target is genuinely nonlinear, while batch
+        Jacobian summaries show architecture-dependent local sensitivities but no
+        simple one-number proxy for RG-like behavior.  We therefore argue that
+        credible RG-like claims require matched budgets, autocorrelation-aware
+        sampling, explicit linear baselines, and transfer protocols that truly
+        test the stated scale hypothesis.} 
 \end{center}
 \clearpage
 \pagenumbering{roman}
@@ -156,23 +153,12 @@ non-linear RG flow.  This question still matters for the interpretability of
 learned coarse-graining and surrogate models, but any conclusion must be read
 at that same scoped level.
 
-The broader significance extends beyond the Ising model.  If standard neural
-networks already implement RG-like computations, this would partially explain
-their striking success in modeling multi-scale physical systems such as
-turbulent flows~\citep{pope2000,frisch1995}, crack propagation in heterogeneous
-materials~\citep{germano1991,smagorinsky1963}, and material defect dynamics.
-These problems share a common structure: important physical phenomena occur at
-multiple nested scales, and the governing equations couple large-scale structures
-to small-scale fluctuations.  RG theory provides a principled framework for this
-coupling; if deep learning implicitly discovers the same structure, it would
-constitute a powerful and unexpected inductive bias.  Conversely, if standard
-architectures do \emph{not} exhibit RG-like behavior, this raises the
-fundamental question of what \emph{other} inductive biases they do rely upon ---
-and whether those biases are sufficient for robust extrapolation in physical
-science.  This connects to the broader research program of "machine learning
-meets theoretical physics"~\citep{mehta2014renormalization,pang2020neural,
-li2018neuralrg,kochlug}, which seeks to understand the relationship between the
-structure of physical law and the structure of learned representations.
+Our durable contribution is therefore benchmark design rather than a sweeping
+theory claim.  The goal is to make it harder to over-interpret simple local
+coarse-graining tasks as evidence for generic RG-like computation, and to make
+it easier to distinguish primary evidence from exploratory diagnostics in
+future work~\citep{mehta2014renormalization,pang2020neural,li2018neuralrg,
+kochlug}.
 
 \subsection{Research Questions}
 
@@ -265,28 +251,33 @@ revision provides strong same-scale evidence, but only exploratory evidence for
 R2 and R3.
 
 \textbf{Revision scope.}  The present revision separates results by protocol.
-The primary quantitative claims use only the unified 10-seed benchmark saved in
-\path{outputs/rg_bench/cross_scale/}.  An earlier fixed-split pilot
+The primary quantitative claims use only the unified 10-seed Wolff-sampled
+same-scale benchmark.  An earlier fixed-split pilot
 ablation (including random-label controls and width sweeps) used a different
 3-seed protocol; it is retained only as a sanity check and is \emph{not}
 numerically mixed with the primary benchmark tables.  A separate
 whole-lattice tiled transfer experiment and dedicated sampler diagnostics are
 reported with their own reduced exploratory budget and interpreted
-accordingly.
+accordingly.  We also include two \emph{diagnostic} extensions in the appendix:
+an XY-model nonlinear coarse-graining pilot and Jacobian-spectrum summaries.
+These are intended to stress-test the scope of the main Ising conclusion, not
+to serve as co-equal primary evidence.
 
 \textbf{What this paper establishes, and what it does not:}
 This paper locates itself as a scoped negative-result paper.
 The strongest supported claim is the same-scale comparison at
 $L=16$, $\beta_c$: the linear baseline outperforms the MLP
-in mean test MSE ($0.17 \pm 0.09$ vs.\ $0.62 \pm 0.65$), although the
-strength of this difference is test-sensitive because of the MLP's large
-variance.  The true whole-lattice tiled
+in mean test MSE ($0.108 \pm 0.010$ vs.\ $0.226 \pm 0.011$) under a
+Wolff-sampled 10-seed benchmark, with a large and stable effect size
+($d=-11.46$).  The true whole-lattice tiled
 transfer diagnostic does not support the original monotone-degradation R2
 hypothesis, but the current reduced-budget results are better interpreted as a
 warning that R2 is not yet a stable operational discriminator in this local-rule
-setting.  Combined with the observed sampler autocorrelation at criticality, we
-treat cross-scale conclusions as exploratory and unresolved.  We do not make a
-primary quantitative R1 claim from the separate random-label pilot.  R3
+setting.  The Wolff diagnostics show that this ambiguity is no longer driven by
+critical slowing down in the same-scale benchmark, but cross-scale conclusions
+remain exploratory because the transfer protocol still uses only a reduced
+budget.  We do not make a primary quantitative R1 claim from the separate
+random-label pilot.  R3
 (turbulence) remains a feasibility demonstration only and does not count as
 evidence for any criterion.
 
@@ -508,41 +499,29 @@ empirical question, answered by the benchmark in Section~\ref{sec:ising_exp}.
 \section{Experiments: 2D Ising Model}
 \label{sec:ising_exp}
 
-All experiments use single-spin Metropolis-Hastings Monte Carlo with
-$N_{\mathrm{train}}=500$, $N_{\mathrm{test}}=300$, equilibration $10^3$
-steps~\citep{metropolis1953,hastings1970}.
+All main benchmark results in this revision use Wolff cluster
+sampling~\citep{wolff1989,swendsen1987,sokal1997,newman1999,binder2010} with
+$N_{\mathrm{train}}=500$, $N_{\mathrm{test}}=300$, and equilibration $10^3$
+cluster-update sweeps.  The earlier single-spin Metropolis protocol
+(\citealp{metropolis1953,hastings1970}) was useful as a diagnostic baseline,
+but it exhibited severe critical slowing down and is no longer the source of
+the main quantitative claims.
 
-Metropolis-Hastings is the standard algorithm for sampling Ising model
-configurations at thermal equilibrium.  Starting from an initial spin
-configuration, the algorithm proposes flipping a single spin, accepts the flip
-with probability $\min(1, \exp(-\Delta E/T))$ where
-$\Delta E$ is the energy change, and rejects it otherwise.  This generates a
-Markov chain whose stationary distribution is the Boltzmann distribution
-$P(S) \propto \exp(-\beta H)$.  The equilibration period of $10^3$ steps
-is a pragmatic burn-in choice rather than a proof of mixing.  In the current
-scripts we record successive post-burn-in states without an explicit
-integrated-autocorrelation-time estimate or thinning interval.  At $\beta_c$,
-critical slowing down implies that within-chain samples remain correlated, so
-we do \emph{not} claim that the resulting configurations are independent draws
-from the thermodynamic ensemble.  Separate train/test chains reduce direct data
-reuse between splits, but the reported error bars should be interpreted as
-benchmark variability under this sampler budget, not as a certified
-independent-sample uncertainty quantification.  A dedicated diagnostic run
-reported in Appendix~\ref{app:mixing} gives
-$\tau_{\mathrm{int}}(E)=6.9 \pm 1.9$ and
-$\tau_{\mathrm{int}}(|M|)=9.6 \pm 3.0$ sweeps at $(L,\beta)=(8,\beta_c)$, and
-$18.8 \pm 7.3$ and $37.0 \pm 15.1$ sweeps at $(16,\beta_c)$, whereas away
-from criticality the corresponding values remain near $2$--$3$ sweeps.  This
-quantifies the critical slowing-down caveat rather than leaving it qualitative.
-Cluster algorithms such as Swendsen-Wang and Wolff would generally be better
-suited to this regime, but they are not used in the current benchmark
-implementation~\citep{swendsen1987,wolff1989,sokal1997,newman1999,binder2010}.
-The appropriate interpretation of the reported error bars and significance tests
-is therefore that of a finite-budget benchmark under correlated sampling,
-rather than thermodynamic-ensemble-level inference under effectively
-independent draws.  At $\beta_c$, the corresponding effective sample sizes are
-only approximately $218$ and $156$ for $(L,\beta)=(8,\beta_c)$, and
-$80$ and $41$ for $(16,\beta_c)$, for $E$ and $|M|$ respectively.
+For the ferromagnetic zero-field Ising model, the Wolff algorithm grows a
+cluster by adding aligned nearest neighbors with probability
+$1-\exp(-2\beta J)$ and then flips the entire cluster at once.  In our
+implementation, one reported ``sweep'' aggregates enough cluster flips to
+exceed one lattice's worth of flipped spins on average, which keeps the sampler
+statistics comparable across lattice sizes.  Separate train/test chains are
+still used, but the main difference relative to the earlier Metropolis-based
+draft is that the integrated autocorrelation times are now $O(1)$ even at
+criticality.  A dedicated diagnostic run reported in Appendix~\ref{app:mixing}
+gives $\tau_{\mathrm{int}}(E)=0.64 \pm 0.03$ and
+$\tau_{\mathrm{int}}(|M|)=0.62 \pm 0.02$ sweeps at $(L,\beta)=(8,\beta_c)$, and
+$0.74 \pm 0.03$ and $0.61 \pm 0.02$ at $(16,\beta_c)$.  With 3000 post-burn-in
+sweeps, these correspond to effective sample sizes on the order of
+$2\times 10^3$, so the same-scale benchmark no longer suffers from the
+effective-sample-size collapse that motivated the earlier caveat.
 
 \paragraph{Evidence tiers.}
 To keep evidence levels explicit, Table~\ref{tab:evidence_tiers} summarizes the
@@ -558,7 +537,7 @@ three protocol tiers used in this revision.
         \midrule
         Main benchmark & Same-scale Ising benchmark & $n=10$, $500/300$, 200 epochs & Primary evidence \\
         Exploratory transfer & Whole-lattice tiled transfer & $n=3$, $200/100$, 40 epochs & Methodological clarification \\
-        Appendix diagnostics & Pilot / turbulence / mixing & mixed auxiliary budgets & Non-primary support \\
+        Appendix diagnostics & Mixing / XY / Jacobian / turbulence & mixed auxiliary budgets & Non-primary support \\
         \bottomrule
     \end{tabular}
     \label{tab:evidence_tiers}
@@ -568,8 +547,8 @@ three protocol tiers used in this revision.
 \label{sec:block_spin_learning}
 
 \textbf{Setup.}  The primary quantitative claims in this revision use the
-unified 10-seed benchmark saved in
-\texttt{outputs/rg\_bench/cross\_scale/}.  For each
+unified 10-seed Wolff-sampled benchmark saved in
+\texttt{outputs/rg\_bench\_wolff/cross\_scale/}.  For each
 $L \in \{4,8,16\}$, $\beta \in \{0.30,\beta_c,0.60\}$, and model in
 \{MLP, Linear, CNN, RGMLP\}, we train with the same optimizer and data
 budget and report held-out test MSE.  Earlier fixed-split pilot ablations
@@ -583,7 +562,7 @@ tables below.
     \centering
     \caption{Main same-scale Ising benchmark ($n=10$ seeds).
         All models are trained on block-spin labels under the unified protocol
-        saved in \texttt{cross\_scale\_statistics.json}.  Values are mean
+        saved in the archived Wolff benchmark outputs.  Values are mean
         $\pm$ std dev over seeds $\{42,\dots,51\}$.  This is the main benchmark
         of record and is not directly comparable in evidence strength to the
         reduced-budget exploratory transfer table below.}
@@ -592,18 +571,18 @@ tables below.
         \toprule
         \textbf{Model} & \textbf{$\beta$} & \textbf{$L=4$ MSE} & \textbf{$L=8$ MSE} & \textbf{$L=16$ MSE (same-$L$)} \\
         \midrule
-        MLP     & 0.30  & $0.0005 \pm 0.0006$  & $0.1198 \pm 0.0128$  & $0.6006 \pm 0.0287$  \\
-        MLP     & $\beta_c$ & $0.0307 \pm 0.0239$  & $0.2017 \pm 0.2187$  & $0.6249 \pm 0.6456$  \\
-        MLP     & 0.60  & $0.0168 \pm 0.0231$  & $0.1973 \pm 0.5341$  & $0.1178 \pm 0.1695$  \\[4pt]
-        Linear  & 0.30  & $0.0314 \pm 0.0059$  & $0.0536 \pm 0.0051$  & $0.4160 \pm 0.0123$  \\
-        Linear  & $\beta_c$ & $0.0357 \pm 0.0265$  & $0.0692 \pm 0.0309$  & $0.1736 \pm 0.0862$  \\
-        Linear  & 0.60  & $0.0159 \pm 0.0216$  & $0.0140 \pm 0.0092$  & $0.0106 \pm 0.0099$  \\[4pt]
-        CNN     & 0.30  & $3.2\times10^{-5} \pm 0.9\times10^{-5}$ & $1.0\times10^{-5} \pm 0.1\times10^{-5}$ & $3.6\times10^{-6} \pm 0.5\times10^{-6}$ \\
-        CNN     & $\beta_c$ & $5.4\times10^{-4} \pm 1.1\times10^{-3}$ & $2.8\times10^{-5} \pm 2.9\times10^{-5}$ & $6.0\times10^{-6} \pm 5.0\times10^{-6}$ \\
-        CNN     & 0.60  & $0.0248 \pm 0.0432$  & $0.0451 \pm 0.0714$  & $0.0028 \pm 0.0073$  \\[4pt]
-        RGMLP   & 0.30  & $0.4928 \pm 0.3231$  & $0.7612 \pm 0.3163$  & $1.1784 \pm 0.2744$  \\
-        RGMLP   & $\beta_c$ & $0.1542 \pm 0.0672$  & $0.5402 \pm 0.3147$  & $1.0646 \pm 1.0284$  \\
-        RGMLP   & 0.60  & $0.6601 \pm 1.3218$  & $1.7935 \pm 1.4374$  & $0.9792 \pm 1.2162$  \\
+        MLP     & 0.30  & $0.0010 \pm 0.0006$  & $0.1241 \pm 0.0127$  & $0.5343 \pm 0.0421$  \\
+        MLP     & $\beta_c$ & $0.0258 \pm 0.0116$  & $0.0968 \pm 0.0158$  & $0.2264 \pm 0.0106$  \\
+        MLP     & 0.60  & $0.0059 \pm 0.0045$  & $0.0091 \pm 0.0031$  & $0.0121 \pm 0.0051$  \\[4pt]
+        Linear  & 0.30  & $0.0290 \pm 0.0067$  & $0.0587 \pm 0.0028$  & $0.3746 \pm 0.0128$  \\
+        Linear  & $\beta_c$ & $0.0242 \pm 0.0082$  & $0.0468 \pm 0.0104$  & $0.1083 \pm 0.0100$  \\
+        Linear  & 0.60  & $0.0066 \pm 0.0047$  & $0.0086 \pm 0.0034$  & $0.0110 \pm 0.0049$  \\[4pt]
+        CNN     & 0.30  & $3.6\times10^{-5} \pm 1.2\times10^{-5}$ & $1.0\times10^{-5} \pm 0.1\times10^{-5}$ & $4.0\times10^{-6} \pm 0.0\times10^{-6}$ \\
+        CNN     & $\beta_c$ & $4.5\times10^{-4} \pm 6.9\times10^{-4}$ & $1.6\times10^{-5} \pm 0.6\times10^{-5}$ & $4.0\times10^{-6} \pm 0.1\times10^{-6}$ \\
+        CNN     & 0.60  & $0.0056 \pm 0.0041$  & $0.0011 \pm 0.0008$  & $4.7\times10^{-5} \pm 8.0\times10^{-5}$  \\[4pt]
+        RGMLP   & 0.30  & $0.5972 \pm 0.3808$  & $0.9659 \pm 0.3103$  & $1.2135 \pm 0.2532$  \\
+        RGMLP   & $\beta_c$ & $0.0866 \pm 0.0215$  & $0.5778 \pm 0.7337$  & $0.3963 \pm 0.0647$  \\
+        RGMLP   & 0.60  & $0.0077 \pm 0.0055$  & $0.0638 \pm 0.1715$  & $0.0148 \pm 0.0064$  \\
         \bottomrule
     \end{tabular}}
     \label{tab:ising_main}
@@ -611,11 +590,11 @@ tables below.
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.82\textwidth]{outputs/rg_bench/cross_scale/figures/model_comparison_bars.png}
+    \includegraphics[width=0.82\textwidth]{outputs/rg_bench_wolff/cross_scale/figures/model_comparison_bars.png}
     \caption{Within-scale Ising block-spin performance across $\beta$.
-        The CNN reaches near-zero MSE in most tested settings, with visible
-        degradation only in the low-$L$ ordered cases at $\beta=0.60$, while
-        the linear model matches or outperforms the MLP at the critical point.}
+        Under Wolff sampling, the CNN reaches near-zero MSE across all tested
+        settings, while the linear model continues to match or outperform the
+        MLP at the critical point.}
     \label{fig:block_spin_models}
 \end{figure}
 
@@ -624,31 +603,33 @@ Key findings from Table~\ref{tab:ising_main}:
 \begin{enumerate}
     \item[(i)] \textbf{At $L=16$ and $\beta_c$, the linear baseline beats the MLP.}
         The unified same-scale benchmark gives
-        $0.1736 \pm 0.0862$ for Linear vs.\ $0.6249 \pm 0.6456$ for MLP at
-        $(L,\beta)=(16,\beta_c)$.  The mean ordering favors the linear model,
-        but the strength of the difference depends on the test because the MLP
-        variance is large (Welch $p=0.055$, Mann-Whitney $p=0.026$,
-        Cohen's $d=-0.98$).  The critical-point task is therefore learnable,
-        but the extra non-linear capacity of the MLP does not provide a robust
-        same-scale advantage.
+        $0.1083 \pm 0.0100$ for Linear vs.\ $0.2264 \pm 0.0106$ for MLP at
+        $(L,\beta)=(16,\beta_c)$.  Under the Wolff-sampled protocol, the mean
+        ordering is no longer test-sensitive: Welch
+        $p=1.4\times10^{-15}$, Mann-Whitney $p=1.8\times10^{-4}$, and
+        Cohen's $d=-11.46$.  The critical-point task is therefore learnable,
+        but the extra non-linear capacity of the MLP still does not provide a
+        same-scale advantage once critical slowing down is removed as the main
+        sampling caveat.
 
     \item[(ii)] \textbf{Error depends strongly on phase and lattice size.}
-        At $L=16$, the linear model is easiest in the ordered phase
-        ($0.0106 \pm 0.0099$ at $\beta=0.60$), while the MLP remains high in
-        both the disordered and critical regimes
-        ($0.6006 \pm 0.0287$ at $\beta=0.30$ and
-        $0.6249 \pm 0.6456$ at $\beta_c$).  The temperature dependence in
+        At $L=16$, the linear model remains easiest in the ordered phase
+        ($0.0110 \pm 0.0049$ at $\beta=0.60$), while the MLP is worst in the
+        disordered phase ($0.5343 \pm 0.0421$ at $\beta=0.30$) and still
+        substantially above the linear baseline at criticality
+        ($0.2264 \pm 0.0106$ vs.\ $0.1083 \pm 0.0100$).  The temperature dependence in
         Figure~\ref{fig:temperature_dependence}
-        shows that the critical regime carries the largest seed-to-seed
-        instability.  In particular, the disordered same-scale setting
+        now reflects the physics of the task rather than a dominant sampler
+        artifact.  In particular, the disordered same-scale setting
         $(L,\beta)=(16,0.30)$ yields an extreme effect size
-        ($d=-8.36$) because the mean gap is large while both models have small
+        ($d=-5.13$) because the mean gap is large while both models have small
         standard deviation.
 
     \item[(iii)] \textbf{Architectural bias matters more than generic depth.}
         The CNN with explicit locality and translation structure reaches
-        near-zero MSE across nearly all $(L,\beta)$ settings, whereas RGMLP is
-        unstable and often worse than the plain MLP.  The task is therefore
+        near-zero MSE across all tested $(L,\beta)$ settings, whereas RGMLP is
+        sometimes competitive but still not systematically better than the
+        linear baseline.  The task is therefore
         perfectly learnable with an appropriate inductive bias, but standard
         fully connected depth alone is not enough.  This is not, by itself,
         evidence that the CNN has learned a physically meaningful RG flow; it
@@ -665,10 +646,11 @@ and the ordered phase yields the lowest MSE for both models.
 
 \begin{figure}[!htbp]
     \centering
-    \includegraphics[width=0.72\textwidth]{outputs/rg_bench/cross_scale/figures/temperature_dependence.png}
+    \includegraphics[width=0.72\textwidth]{outputs/rg_bench_wolff/cross_scale/figures/temperature_dependence.png}
     \caption{Temperature dependence of within-scale block-spin MSE at $L=16$.
-        Both models improve away from criticality, and the ordered phase yields
-        the lowest MSE for both models.}
+        Under Wolff sampling, the ordered phase yields the lowest MSE for both
+        models, while the linear baseline remains clearly stronger at
+        criticality.}
     \label{fig:temperature_dependence}
 \end{figure}
 
@@ -683,8 +665,8 @@ lattice.  Concretely, a model trained on $L=8$ receives each non-overlapping
 $8\times8$ patch of a $16\times16$ configuration, predicts the corresponding
 $4\times4$ coarse block, and the four predicted blocks are assembled into the
 full $8\times8$ coarse lattice.  The same construction yields $4\to8$ and
-$4\to16$ transfer.  Because this experiment was added after the main 10-seed
-benchmark, we ran it under a reduced exploratory budget
+$4\to16$ transfer.  The current exploratory version uses the same Wolff
+cluster sampler as the main benchmark, but it still runs under a reduced budget
 ($n=3$ seeds, $N_{\mathrm{train}}=200$, $N_{\mathrm{test}}=100$, 40 epochs)
 and compare transfer against same-budget same-$L$ baselines from the same
 script.
@@ -693,7 +675,7 @@ script.
     \centering
     \caption{Exploratory whole-lattice tiled transfer at $\beta_c$.
         Same-budget baselines and transfers come from the
-        \texttt{whole\_lattice\_transfer/summary.json}
+        the archived exploratory transfer outputs
         using $n=3$ seeds, $N_{\mathrm{train}}=200$, $N_{\mathrm{test}}=100$,
         and 40 epochs.  ``Deg.'' is relative to the same-budget same-$L=16$
         baseline for the same model.}
@@ -701,9 +683,9 @@ script.
         \toprule
         \textbf{Source $\to$ 16} & \textbf{MLP} & \textbf{MLP Deg.} & \textbf{Linear} & \textbf{Linear Deg.} \\
         \midrule
-        $16 \to 16$ & $0.463 \pm 0.174$ & $1.00\times$ & $0.287 \pm 0.170$ & $1.00\times$ \\
-        $8 \to 16$  & $0.293 \pm 0.190$ & $0.63\times$ & $0.244 \pm 0.129$ & $0.85\times$ \\
-        $4 \to 16$  & $0.141 \pm 0.107$ & $0.31\times$ & $0.222 \pm 0.113$ & $0.77\times$ \\
+        $16 \to 16$ & $0.280 \pm 0.039$ & $1.00\times$ & $0.213 \pm 0.038$ & $1.00\times$ \\
+        $8 \to 16$  & $0.225 \pm 0.006$ & $0.80\times$ & $0.239 \pm 0.019$ & $1.12\times$ \\
+        $4 \to 16$  & $0.167 \pm 0.056$ & $0.60\times$ & $0.232 \pm 0.047$ & $1.08\times$ \\
         \bottomrule
     \end{tabular}
     \label{tab:whole_lattice_transfer}
@@ -711,20 +693,21 @@ script.
 
 \begin{itemize}
     \item \textbf{The true tiled experiment does not support monotone degradation.}
-        At $\beta_c$, neither model deteriorates when transferred from
-        $L=8$ to $L=16$ under this tiled evaluation, and the $4\to16$
-        transfer is numerically \emph{better} still.  The originally proposed
-        monotone scale-distance interpretation therefore fails in this local-rule
-        setting.
+        At $\beta_c$, the MLP improves as the source scale shrinks
+        ($0.280 \to 0.225 \to 0.167$), whereas the linear model moves in the
+        opposite direction and becomes slightly worse than its same-budget
+        $16\to16$ baseline.  The originally proposed monotone scale-distance
+        interpretation therefore fails in this local-rule setting.
     \item \textbf{Linear baselines remain fully competitive.}
-        Although the MLP improves substantially relative to its same-budget
-        $16\to16$ baseline, the linear model also transfers competitively:
-        $0.244 \pm 0.129$ for $8\to16$ and $0.222 \pm 0.113$ for $4\to16$,
-        versus $0.287 \pm 0.170$ at $16\to16$.
+        Even when the MLP improves relative to its same-budget $16\to16$
+        baseline, the linear model remains of the same order:
+        $0.239 \pm 0.019$ for $8\to16$ and $0.232 \pm 0.047$ for $4\to16$,
+        versus $0.213 \pm 0.038$ at $16\to16$.
     \item \textbf{The cross-scale story is protocol-sensitive.}
-        The new whole-lattice tiled evaluation gives a different qualitative
-        picture from the earlier patch-only proxy, which means cross-scale
-        conclusions depend strongly on how transfer is operationalized.
+        The Wolff-sampled whole-lattice tiled evaluation still gives a different
+        qualitative picture from the earlier patch-only proxy, which means
+        cross-scale conclusions depend strongly on how transfer is operationalized,
+        not only on how the lattice data are sampled.
         Appendix~\ref{app:whole_lattice} (Table~\ref{tab:whole_lattice_all_beta})
         shows that this non-monotone behavior is not confined to $\beta_c$.
 \end{itemize}
@@ -734,10 +717,12 @@ script.
 deliver a stable positive RG signature.  Instead, it shows that transfer in
 this benchmark is highly protocol- and budget-sensitive: the tiled
 whole-lattice evaluation does \emph{not} display monotone degradation with
-scale distance, and linear baselines remain competitive throughout.  The right
-interpretation is therefore not that R2 has been cleanly falsified, but that
-for the present local-rule setting the original R2 formulation is not yet a
-stable operational discriminator.  We therefore keep R2 unresolved.
+scale distance in any model-independent way, and linear baselines remain
+competitive throughout.  Because the same qualitative ambiguity persists even
+after replacing local Metropolis updates with Wolff clusters, the right
+interpretation is not that R2 has been cleanly falsified, but that for the
+present local-rule setting the original R2 formulation is not yet a stable
+operational discriminator.  We therefore keep R2 unresolved.
 
 \paragraph{Auxiliary analyses moved to the appendix.}
 Legacy pilot sanity checks, sampler diagnostics, and the turbulence
@@ -753,8 +738,8 @@ main-text evidence.
 
 The strongest supported result in the revised manuscript is the unified
 same-scale benchmark at $(L,\beta)=(16,\beta_c)$:
-Linear reaches $0.1736 \pm 0.0862$ while MLP reaches
-$0.6249 \pm 0.6456$ ($n=10$).  We focus on this result
+Linear reaches $0.1083 \pm 0.0100$ while MLP reaches
+$0.2264 \pm 0.0106$ ($n=10$).  We focus on this result
 because it comes from the same 10-seed protocol used throughout the main
 tables; the earlier fixed-split random-label pilot is not used for the
 primary quantitative claim.
@@ -779,13 +764,12 @@ We offer three non-mutually-exclusive interpretations:
         representation than the linear baseline; the CNN result suggests that
         architectural bias, not depth alone, is the missing ingredient.
 
-    \item[(iii)] \textbf{Training dynamics:} The MLP may converge to
-        different local minima across seeds, leading to high variance.
-        The unified benchmark records standard deviations of $0.646$ for the
-        MLP and $0.086$ for the linear model at $(L,\beta)=(16,\beta_c)$.
-        This instability is itself part of the negative result: the MLP's
-        added flexibility manifests as optimization variance rather than as a
-        reliable accuracy advantage.
+    \item[(iii)] \textbf{Robust mismatch rather than variance-driven failure:}
+        Under Wolff sampling, both models now have small seed variance at
+        $(L,\beta)=(16,\beta_c)$: $0.0106$ for the MLP and $0.0100$ for the
+        linear model.  The negative result therefore becomes \emph{stronger},
+        not weaker: once the sampler artifact is removed, the MLP is still
+        stably worse rather than merely noisier.
 \end{enumerate}
 
 This finding suggests that, on the present benchmark, the RG-relevant
@@ -797,10 +781,11 @@ hierarchical non-linear representation.
 The whole-lattice tiled experiment sharpens the methodological lesson.
 Once transfer is evaluated on the full target lattice rather than on a
 single patch, the original monotone-degradation criterion still does not
-emerge.  At $\beta_c$, both $8\to16$ and $4\to16$ transfer remain
-competitive with the same-budget same-$L=16$ baseline, and the smaller source
-scale can even perform better numerically.  This means that, in the present
-local-rule setting, R2 is not a stable discriminator of RG-like behavior.
+emerge.  At $\beta_c$, the MLP improves as the source scale shrinks, but the
+linear model slightly degrades relative to its same-budget same-$L=16$
+baseline.  This means that, in the present local-rule setting, R2 is not a
+stable discriminator of RG-like behavior even after the sampling hard flaw is
+mitigated.
 
 Three non-exclusive mechanisms may explain why smaller source scales can appear
 to transfer better in the tiled experiment.  First, \emph{local-rule tileability}:
@@ -828,6 +813,34 @@ be coincidental rather than causal.  Stronger claims should be reserved for
 settings in which linear baselines fail, transfer protocols match the
 stated operational criterion, and sampling uncertainty is characterized more
 carefully than in the present benchmark.
+
+\subsection{Diagnostic Extensions Beyond Majority Vote}
+
+Two appendix-level diagnostics help interpret the scope of the main negative
+result.  First, we replaced Ising majority vote by a genuinely nonlinear local
+target: a 2D XY-model circular-mean coarse-graining rule in which each $2\times
+2$ block is mapped to a \emph{normalized} average spin direction.  This
+continuous-spin setting sits closer to Berezinskii-Kosterlitz-Thouless physics
+than to the Ising majority-vote threshold map~\citep{mermin1966,berezinskii1971,
+kosterlitz1973,fernandez1986xy}.  Table~\ref{tab:xy_diag} reports the key
+10-seed summary numbers.  The resulting benchmark does \emph{not}
+reverse into a simple ``generic MLP wins'' story.  Instead, linear baselines no
+longer dominate uniformly, CNN remains the most stable architecture across
+scales and temperatures, and the MLP-vs-Linear comparison becomes strongly
+temperature dependent.  In other words, leaving the locally linear Ising task
+changes the baseline landscape, but does not by itself rescue generic fully
+connected depth.
+
+Second, the Jacobian-spectrum summaries show that architecture-dependent local
+sensitivity patterns are real, but that they resist collapse to a single scalar
+proxy.  At $L=8$ and $L=16$ near $\beta_c$, the models produce visibly
+different leading singular-value profiles, yet the largest singular value does
+not track generalization monotonically across architectures.  The Jacobian
+therefore looks promising as a diagnostic object, but not yet as a standalone
+criterion for RG-like success; Table~\ref{tab:jacobian_diag} provides a compact
+numerical summary.  Appendix~\ref{app:xy} and
+Appendix~\ref{app:jacobian} should thus be read as \emph{scope tests} for the
+methodological argument rather than as positive headline results.
 
 % ===== SECTION 7: RELATED WORK =====
 \section{Related Work}
@@ -877,10 +890,10 @@ what a local majority-vote task actually supports.
 This revision supports a scoped negative result.  In the unified 10-seed
 same-scale benchmark, the linear baseline has lower mean test MSE than the MLP
 at the critical point: at $(L,\beta)=(16,\beta_c)$ the MLP reaches
-$0.6249 \pm 0.6456$, while Linear reaches $0.1736 \pm 0.0862$.  The mean
-ordering favors the linear model, but the strength of the difference depends on
-the test because the MLP variance is large (Welch $p=0.055$, Mann-Whitney
-$p=0.026$, Cohen's $d=-0.98$).  Across the benchmark as a whole, no setting
+$0.2264 \pm 0.0106$, while Linear reaches $0.1083 \pm 0.0100$.  Under Wolff
+cluster sampling this ordering is statistically unambiguous (Welch
+$p=1.4\times10^{-15}$, Mann-Whitney $p=1.8\times10^{-4}$, Cohen's
+$d=-11.46$).  Across the benchmark as a whole, no setting
 shows a robust MLP advantage over the linear baseline.  The supported claim is
 therefore specific: on majority-vote block-spin tasks dominated by a local
 linear-threshold structure, standard fully connected depth does not provide an
@@ -888,14 +901,15 @@ RG-like advantage over simpler linear projections.
 
 The exploratory whole-lattice tiled transfer and the sampler diagnostics mainly
 clarify methodology rather than add parallel primary evidence.  At $\beta_c$,
-the tiled transfer protocol does not exhibit monotone degradation with scale
-distance: $8\to16$ and even $4\to16$ remain competitive with the same-budget
-$16\to16$ baseline, and linear models stay competitive throughout.  At the same
-time, the critical-point sampler diagnostics show substantial autocorrelation,
-with $\tau_{\mathrm{int}}(E)=18.8 \pm 7.3$ and
-$\tau_{\mathrm{int}}(|M|)=37.0 \pm 15.1$ sweeps at $(16,\beta_c)$, implying
-effective sample sizes of only about $80$ and $41$ for the diagnostic run.  We
-therefore treat R2 as unresolved rather than falsified, and we do not promote
+the tiled transfer protocol does not exhibit a stable monotone law: for the
+MLP, $8\to16$ and $4\to16$ are both better than the same-budget $16\to16$
+baseline, whereas for the linear model they are both slightly worse.  At the
+same time, the critical-point sampler diagnostics under Wolff updates give
+$\tau_{\mathrm{int}}(E)=0.74 \pm 0.03$ and
+$\tau_{\mathrm{int}}(|M|)=0.61 \pm 0.02$ sweeps at $(16,\beta_c)$, corresponding
+to effective sample sizes on the order of $2\times10^3$ for the 3000-sweep
+diagnostic run.  We therefore treat R2 as unresolved rather than falsified, and
+we do not promote
 the appendix-level turbulence note or the older random-label pilot to primary
 evidence.
 
@@ -905,50 +919,59 @@ true multi-scale chains (for example $4\to8\to16$ together with direct
 $4\to16$ and $8\to16$ transfer), autocorrelation-aware sampling, and a regime
 in which competitive linear baselines actually fail.  All main tables in this
 revision are sourced from the separated raw outputs in
-\path{outputs/rg_bench/cross_scale/},
-\path{outputs/rg_bench/whole_lattice_transfer/}, and
-\path{outputs/rg_bench/mixing_analysis/}, with the legacy pilot outputs kept
+\emph{the archived benchmark, transfer, and mixing outputs}, with the legacy pilot outputs kept
 appendix-only.  On the present local majority-vote block-spin benchmark, that
 combination of evidence does not support a claim that standard MLPs learn
 RG-like advantages.
+
+The appendix-level diagnostics point in a more nuanced direction.  In the XY
+nonlinear coarse-graining pilot, linear baselines cease to be uniformly strong,
+but the most consistent advantage belongs to a locality-aware CNN rather than to
+a generic fully connected MLP.  In the Jacobian batch summaries, architecture
+differences are visible but do not collapse to a one-number RG diagnostic; see
+Appendix~\ref{app:xy} and Appendix~\ref{app:jacobian} for the compact summary
+tables and figures.
+Taken together, these extensions reinforce the paper's methodological message:
+benchmark design can reveal where a negative result is task-specific, but
+diagnostic structure alone should not be overpromoted to a positive RG claim
+until its physical interpretation is much sharper.
 
 \appendix
 
 \section{Sampling Diagnostics}
 \label{app:mixing}
 
-To quantify the sampling caveat rather than leave it qualitative, we ran a
-dedicated time-series diagnostic using 3 seeds, 3000 post-burn-in sweeps, and
-the observables $E$ and $|M|$.  Table~\ref{tab:mixing} reports the resulting
-integrated autocorrelation times and mean acceptance rates.
+To quantify how much the cluster sampler mitigates the earlier critical-slowing
+concern, we ran a dedicated time-series diagnostic using 3 seeds, 3000
+post-burn-in sweeps, and the observables $E$ and $|M|$.  Table~\ref{tab:mixing}
+reports the resulting integrated autocorrelation times together with the mean
+cluster coverage per sweep.
 
 \begin{table}[ht]
     \centering
-    \caption{Metropolis-Hastings mixing diagnostics from the
-        \texttt{mixing\_analysis/summary.json} output.}
+    \caption{Wolff-sampler mixing diagnostics from the archived diagnostic
+        outputs.}
     \begin{tabular}{lccc}
         \toprule
-        \textbf{Setting} & \textbf{$\tau_{\mathrm{int}}(E)$} & \textbf{$\tau_{\mathrm{int}}(|M|)$} & \textbf{Acceptance} \\
+        \textbf{Setting} & \textbf{$\tau_{\mathrm{int}}(E)$} & \textbf{$\tau_{\mathrm{int}}(|M|)$} & \textbf{Coverage} \\
         \midrule
-        $L=8$, $\beta=0.30$   & $1.7 \pm 0.4$  & $2.7 \pm 0.4$  & $0.520 \pm 0.004$ \\
-        $L=8$, $\beta_c$      & $6.9 \pm 1.9$  & $9.6 \pm 3.0$  & $0.171 \pm 0.005$ \\
-        $L=8$, $\beta=0.60$   & $1.8 \pm 0.3$  & $1.9 \pm 0.3$  & $0.0250 \pm 0.0006$ \\
-        $L=16$, $\beta=0.30$  & $1.5 \pm 0.2$  & $3.1 \pm 0.2$  & $0.522 \pm 0.001$ \\
-        $L=16$, $\beta_c$     & $18.8 \pm 7.3$ & $37.0 \pm 15.1$ & $0.184 \pm 0.006$ \\
-        $L=16$, $\beta=0.60$  & $1.9 \pm 0.2$  & $2.3 \pm 0.3$  & $0.0259 \pm 0.0008$ \\
+        $L=8$, $\beta=0.30$   & $0.66 \pm 0.05$  & $0.56 \pm 0.04$  & $1.120 \pm 0.015$ \\
+        $L=8$, $\beta_c$      & $0.64 \pm 0.03$  & $0.62 \pm 0.02$  & $1.627 \pm 0.007$ \\
+        $L=8$, $\beta=0.60$   & $0.77 \pm 0.12$  & $0.68 \pm 0.04$  & $1.557 \pm 0.293$ \\
+        $L=16$, $\beta=0.30$  & $0.67 \pm 0.07$  & $0.50 \pm 0.00$  & $1.033 \pm 0.015$ \\
+        $L=16$, $\beta_c$     & $0.74 \pm 0.03$  & $0.61 \pm 0.02$  & $1.536 \pm 0.004$ \\
+        $L=16$, $\beta=0.60$  & $0.55 \pm 0.03$  & $0.53 \pm 0.03$  & $1.937 \pm 0.503$ \\
         \bottomrule
     \end{tabular}
     \label{tab:mixing}
 \end{table}
 
-The critical-point autocorrelation times are an order of magnitude larger than
-their off-critical counterparts, especially for $|M|$ at $L=16$.  This
-confirms that the benchmark should be read as a finite-budget computational
-study, not as an effectively independent-sample Monte Carlo analysis.  With
-3000 post-burn-in sweeps, the corresponding effective sample sizes are
-approximately $3000/(2\tau_{\mathrm{int}})\approx 218$ for $E$ and $156$ for
-$|M|$ at $(L,\beta)=(8,\beta_c)$, and approximately $80$ and $41$ at
-$(16,\beta_c)$.
+Under Wolff updates the autocorrelation times stay near unity even at the
+critical point.  This means the dominant limitation of the current paper is no
+longer critical slowing down in the same-scale benchmark.  With 3000
+post-burn-in sweeps, the corresponding effective sample sizes are approximately
+$2360$ for $E$ and $2431$ for $|M|$ at $(L,\beta)=(8,\beta_c)$, and
+approximately $2027$ and $2477$ at $(16,\beta_c)$.
 
 \section{Whole-Lattice Transfer Across Temperatures}
 \label{app:whole_lattice}
@@ -962,7 +985,7 @@ $n=3$ seeds and a smaller training budget than the main benchmark.
 \begin{table}[ht]
     \centering
     \caption{Exploratory whole-lattice tiled transfer across temperatures from
-        \texttt{whole\_lattice\_transfer/summary.json}.  All entries use
+        the archived diagnostic outputs.  All entries use
         $n=3$ seeds, $N_{\mathrm{train}}=200$, $N_{\mathrm{test}}=100$, and
         40 epochs.}
     \resizebox{\textwidth}{!}{%
@@ -970,28 +993,150 @@ $n=3$ seeds and a smaller training budget than the main benchmark.
         \toprule
         \textbf{$\beta$} & \textbf{Source $\to$ Target} & \textbf{MLP} & \textbf{Linear} & \textbf{Comment} \\
         \midrule
-        $0.30$ & $4\to8$   & $0.088 \pm 0.044$ & $0.562 \pm 0.104$ & MLP transfer better than same-$L=8$ \\
-        $0.30$ & $4\to16$  & $0.084 \pm 0.037$ & $0.545 \pm 0.081$ & MLP strongly below same-$L=16$ \\
-        $0.30$ & $8\to16$  & $0.344 \pm 0.015$ & $0.509 \pm 0.013$ & Both beat same-$L=16$ \\
+        $0.30$ & $4\to8$   & $0.120 \pm 0.065$ & $0.487 \pm 0.071$ & MLP transfer better than same-$L=8$ \\
+        $0.30$ & $4\to16$  & $0.128 \pm 0.065$ & $0.530 \pm 0.092$ & MLP strongly below same-$L=16$ \\
+        $0.30$ & $8\to16$  & $0.330 \pm 0.013$ & $0.475 \pm 0.014$ & Both beat same-$L=16$ \\
         \midrule
-        $\beta_c$ & $4\to8$   & $0.095 \pm 0.057$ & $0.168 \pm 0.088$ & Non-monotone vs.\ source scale \\
-        $\beta_c$ & $4\to16$  & $0.141 \pm 0.107$ & $0.222 \pm 0.113$ & Better than same-$L=16$ for both \\
-        $\beta_c$ & $8\to16$  & $0.293 \pm 0.190$ & $0.244 \pm 0.129$ & Competitive with same-$L=16$ \\
+        $\beta_c$ & $4\to8$   & $0.111 \pm 0.037$ & $0.177 \pm 0.030$ & MLP non-monotone; Linear degrades \\
+        $\beta_c$ & $4\to16$  & $0.167 \pm 0.056$ & $0.232 \pm 0.047$ & MLP better than same-$L=16$ only \\
+        $\beta_c$ & $8\to16$  & $0.225 \pm 0.006$ & $0.239 \pm 0.019$ & Model-asymmetric transfer \\
         \midrule
-        $0.60$ & $4\to8$   & $0.019 \pm 0.009$ & $0.040 \pm 0.007$ & MLP near same-$L=8$; Linear degrades \\
-        $0.60$ & $4\to16$  & $0.016 \pm 0.011$ & $0.046 \pm 0.012$ & Strong model asymmetry \\
-        $0.60$ & $8\to16$  & $0.016 \pm 0.013$ & $0.017 \pm 0.012$ & Linear near same-$L=16$ \\
+        $0.60$ & $4\to8$   & $0.008 \pm 0.003$ & $0.022 \pm 0.003$ & MLP near same-$L=8$; Linear degrades \\
+        $0.60$ & $4\to16$  & $0.014 \pm 0.013$ & $0.028 \pm 0.010$ & Strong model asymmetry \\
+        $0.60$ & $8\to16$  & $0.014 \pm 0.013$ & $0.015 \pm 0.012$ & Linear near same-$L=16$ \\
         \bottomrule
     \end{tabular}}
     \label{tab:whole_lattice_all_beta}
 \end{table}
+
+\section{Exploratory XY Nonlinear Diagnostic}
+\label{app:xy}
+
+To stress-test whether the Ising majority-vote benchmark is unusually favorable
+to linear baselines, we constructed an appendix-level 2D XY-model pilot in
+which each lattice site carries a continuous angle $\theta_i \in [-\pi,\pi)$.
+The supervised target is no longer a majority-vote sign, but the normalized
+circular mean of each $2\times2$ block.  Concretely, the input is the two-
+channel field $(\cos \theta_i, \sin \theta_i)$, while the coarse target for
+each block is the unit vector obtained by normalizing the blockwise sum of
+those two channels.  This normalization step makes the task genuinely
+nonlinear, even though the pre-normalization block sum is linear.  The XY model
+also changes the underlying physics: long-range ferromagnetic order is excluded
+in two dimensions with continuous symmetry~\citep{mermin1966}, while the low-
+temperature phase is controlled by Berezinskii-Kosterlitz-Thouless physics
+instead of an Ising-type order parameter~\citep{berezinskii1971,kosterlitz1973,
+fernandez1986xy}.
+
+Figure~\ref{fig:xy_multiscale_summary} summarizes the resulting 10-seed
+multiscale diagnostic at $L \in \{8,16\}$ and
+$\beta \in \{0.60, 1.12, 1.50\}$.  The key methodological point is that the
+baseline landscape changes once the local coarse-graining rule is genuinely
+nonlinear.  Linear models are no longer uniformly dominant: at
+$(L,\beta)=(16,0.60)$, for example, the linear model reaches
+$0.467 \pm 0.008$ test MSE, while the MLP reaches $0.342 \pm 0.006$ and the CNN
+reaches $0.0466 \pm 0.0032$.  At the same time, the MLP does \emph{not} become
+reliably superior across the board: at $(16,1.12)$ and $(16,1.50)$ it is
+substantially worse than the linear model.  The most stable winner is instead
+the CNN, whose locality-aware architecture remains far stronger than both fully
+connected baselines across all tested settings.  We therefore read this branch
+as a diagnostic clarification: leaving the locally linear Ising majority-vote
+task does alter the baseline ranking, but it does not license a generic
+``nonlinear MLPs discover RG'' claim.
+
+\begin{table}[ht]
+    \centering
+    \caption{Appendix-level 10-seed XY nonlinear coarse-graining diagnostic.
+        Entries are mean test MSE $\pm$ std over seeds from the archived
+        multiscale XY outputs.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{lccc}
+        \toprule
+        \textbf{Setting} & \textbf{Linear} & \textbf{MLP} & \textbf{CNN} \\
+        \midrule
+        $L=8$, $\beta=0.60$  & $0.222 \pm 0.007$ & $0.150 \pm 0.006$ & $0.0515 \pm 0.0037$ \\
+        $L=8$, $\beta=1.12$  & $0.0664 \pm 0.0064$ & $0.0856 \pm 0.0334$ & $0.0276 \pm 0.0394$ \\
+        $L=8$, $\beta=1.50$  & $0.0498 \pm 0.0045$ & $0.0641 \pm 0.0402$ & $0.0174 \pm 0.0173$ \\
+        $L=16$, $\beta=0.60$ & $0.467 \pm 0.008$ & $0.342 \pm 0.006$ & $0.0466 \pm 0.0032$ \\
+        $L=16$, $\beta=1.12$ & $0.129 \pm 0.012$ & $0.291 \pm 0.111$ & $0.0290 \pm 0.0233$ \\
+        $L=16$, $\beta=1.50$ & $0.0868 \pm 0.0117$ & $0.229 \pm 0.153$ & $0.0248 \pm 0.0278$ \\
+        \bottomrule
+    \end{tabular}}
+    \label{tab:xy_diag}
+\end{table}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.92\textwidth]{outputs/phase2_figures/xy_multiscale_summary.png}
+    \caption{Diagnostic 10-seed XY coarse-graining benchmark across
+        $L \in \{8,16\}$ and three temperatures.  The target is the normalized
+        circular mean of each $2\times2$ block.  CNN is the most stable model
+        across all settings, while the Linear-vs-MLP ranking becomes
+        temperature dependent rather than uniformly favoring one side.}
+    \label{fig:xy_multiscale_summary}
+\end{figure}
+
+\section{Jacobian Spectrum Diagnostics}
+\label{app:jacobian}
+
+We also computed batch summaries of the input-output Jacobian for trained
+models near the Ising critical point.  The aim here is diagnostic rather than
+theoretical: we do \emph{not} claim that the present Jacobian summaries already
+extract universal scaling dimensions.  Instead, they serve two narrower
+purposes.  First, they verify that different architectures induce visibly
+different local sensitivity spectra even when trained on the same supervised
+task.  Second, they test whether any simple one-number summary of the Jacobian
+appears to track the benchmark ranking.  The answer is negative.  At $L=8$ and
+$L=16$ near $\beta_c$, the mean leading singular values differ significantly
+across Linear, MLP, and CNN, but the ordering of the largest singular value does
+not match the ordering of test error in any simple monotone way.  For example,
+at $L=16$ the MLP has the largest mean spectral norm in our batch summary, yet
+its test error is much worse than that of the CNN.
+
+This is an important caution for future ``neural RG'' claims.  The Jacobian is
+plausibly the right \emph{object} to inspect, but the wrong \emph{summary} can
+be misleading.  The next methodological step would therefore be to replace
+single-number proxies by explicit scaling fits across lattice sizes, operators,
+or perturbation channels.  Until then, the present Jacobian results are best
+understood as architecture-sensitive diagnostics rather than as extracted
+critical exponents.
+
+\begin{table}[ht]
+    \centering
+    \caption{Batch Jacobian diagnostic summary at $\beta_c$ under Wolff sampling.
+        Test-MSE means and Jacobian-spectrum means are aggregated across multiple
+        seeds and samples from the archived Jacobian batch summaries.}
+    \begin{tabular}{lcccc}
+        \toprule
+        \textbf{Setting} & \textbf{Model} & \textbf{Test MSE} & \textbf{$\|J\|_2$ Mean} & \textbf{Top-2 $\sigma(J)$ Means} \\
+        \midrule
+        $L=8$, $\beta_c$  & Linear & $0.197$ & $0.327$ & $(0.327,\ 0.238)$ \\
+        $L=8$, $\beta_c$  & MLP    & $0.161$ & $0.384$ & $(0.384,\ 0.219)$ \\
+        $L=8$, $\beta_c$  & CNN    & $0.0215$ & $0.390$ & $(0.390,\ 0.227)$ \\
+        $L=16$, $\beta_c$ & Linear & $0.172$ & $0.937$ & $(0.937,\ 0.855)$ \\
+        $L=16$, $\beta_c$ & MLP    & $0.273$ & $1.323$ & $(1.323,\ 1.004)$ \\
+        $L=16$, $\beta_c$ & CNN    & $3.88\times10^{-4}$ & $0.808$ & $(0.808,\ 0.496)$ \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:jacobian_diag}
+\end{table}
+
+\begin{figure}[ht]
+    \centering
+    \includegraphics[width=0.88\textwidth]{outputs/phase2_figures/jacobian_batch_summary.png}
+    \caption{Batch Jacobian-spectrum summaries at $\beta_c$ for $L=8$ and
+        $L=16$ under Wolff sampling.  The curves show mean top singular values
+        across multiple seeds and test samples.  The lack of monotone alignment
+        between these spectra and test error is precisely why we treat the
+        Jacobian as a diagnostic object rather than as a one-number RG score.}
+    \label{fig:jacobian_batch_summary}
+\end{figure}
 
 \section{Legacy Pilot Sanity Checks}
 \label{app:pilot}
 
 Earlier fixed-split pilot experiments (random-label controls, width sweeps, and
 the first ablation figures) were generated under a separate 3-seed protocol and
-now live in \path{outputs/rg_bench/pilot_ablation/}.  They remain useful as
+are archived separately.  They remain useful as
 sanity checks, but they are excluded from the main quantitative tables because
 their data generation, seeding, and training budgets do not match the unified
 same-scale benchmark.
@@ -999,12 +1144,10 @@ same-scale benchmark.
 \section{Exploratory Turbulence Note}
 \label{app:turbulence}
 
-The turbulence closure experiment is retained only as a compressed appendix
-note.  Using D2Q9 Lattice Boltzmann data at Re$=200$, the exploratory spectrum
-fit gives $\alpha = -1.30 \pm 0.05$ over $k \in [2,20]$, compared with the
-Kolmogorov target $-5/3 \approx -1.67$.  The gap is substantial, the inertial
-range is too short at this Reynolds number, and the experiment therefore does
-not support R3.  It remains a feasibility check for future higher-Re studies.
+This note is retained only for archival completeness.  At Re$=200$, the
+exploratory turbulence spectrum fit gives $\alpha = -1.30 \pm 0.05$, well away
+from the Kolmogorov target $-5/3$, so it does not support R3 and plays no role
+in the paper's main argument.
 
 % ===== REFERENCES =====
 \clearpage

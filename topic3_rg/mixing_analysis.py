@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import time
 from pathlib import Path
 
@@ -17,7 +18,7 @@ import numpy as np
 from topic3_rg.ising import IsingConfig, IsingModel
 
 
-OUT_DIR = Path("outputs/rg_bench/mixing_analysis")
+OUT_DIR = Path(os.environ.get("RG_MIXING_OUT_DIR", "outputs/rg_bench/mixing_analysis"))
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -50,7 +51,7 @@ def effective_sample_size(n: int, tau_int: float) -> float:
 
 def run_mixing_analysis(L_values: list[int] | None = None, betas: list[float] | None = None,
                         n_seeds: int = 3, eq_steps: int = 1000, n_sweeps: int = 4000,
-                        max_lag: int = 200) -> tuple[list[dict], dict]:
+                        max_lag: int = 200, sampler: str = "wolff") -> tuple[list[dict], dict]:
     if L_values is None:
         L_values = [8, 16]
     if betas is None:
@@ -63,6 +64,7 @@ def run_mixing_analysis(L_values: list[int] | None = None, betas: list[float] | 
 
     print("\n" + "=" * 70, flush=True)
     print("  MIXING / AUTOCORRELATION ANALYSIS", flush=True)
+    print(f"  Sampler  : {sampler}", flush=True)
     print(f"  Output   : {OUT_DIR}", flush=True)
     print("=" * 70, flush=True)
 
@@ -70,10 +72,14 @@ def run_mixing_analysis(L_values: list[int] | None = None, betas: list[float] | 
         for beta in betas:
             energy_taus = []
             mag_taus = []
-            acc_means = []
+            sampler_stat_means = []
+            accepted_means = []
+            cluster_size_means = []
+            cluster_count_means = []
+            sampler_stat_name = "accepted_fraction"
             for seed in seeds:
                 np.random.seed(seed)
-                model = IsingModel(IsingConfig(L=L, beta=beta, h=0.0, J=1.0))
+                model = IsingModel(IsingConfig(L=L, beta=beta, h=0.0, J=1.0, sampler=sampler))
                 series = model.time_series(n_sweeps=n_sweeps, eq_steps=eq_steps)
 
                 energy_acf = autocorrelation(series["energy"], max_lag=max_lag)
@@ -82,28 +88,45 @@ def run_mixing_analysis(L_values: list[int] | None = None, betas: list[float] | 
                 tau_m = integrated_autocorrelation_time(mag_acf)
                 ess_e = effective_sample_size(n_sweeps, tau_e)
                 ess_m = effective_sample_size(n_sweeps, tau_m)
-                acc = float(np.mean(series["acceptance"]))
+                sampler_stat_name = str(series["sampler_stat_name"])
+                sampler_stat = float(np.nanmean(series["sampler_stat"]))
+                accepted_fraction = float(np.nanmean(series["accepted_fraction"])) if np.any(~np.isnan(series["accepted_fraction"])) else None
+                mean_cluster_size = float(np.nanmean(series["mean_cluster_size"])) if np.any(~np.isnan(series["mean_cluster_size"])) else None
+                clusters_per_sweep = float(np.nanmean(series["clusters_per_sweep"])) if np.any(~np.isnan(series["clusters_per_sweep"])) else None
 
                 rows.append({
                     "L": L,
                     "beta": beta,
+                    "sampler": sampler,
                     "seed": seed,
                     "tau_energy": tau_e,
                     "tau_magnetization_abs": tau_m,
                     "ess_energy": ess_e,
                     "ess_magnetization_abs": ess_m,
-                    "acceptance_mean": acc,
+                    "sampler_stat_name": sampler_stat_name,
+                    "sampler_stat_mean": sampler_stat,
+                    "acceptance_mean": accepted_fraction,
+                    "accepted_fraction_mean": accepted_fraction,
+                    "mean_cluster_size": mean_cluster_size,
+                    "clusters_per_sweep": clusters_per_sweep,
                     "energy_mean": float(np.mean(series["energy"])),
                     "magnetization_abs_mean": float(np.mean(series["magnetization_abs"])),
                 })
 
                 energy_taus.append(tau_e)
                 mag_taus.append(tau_m)
-                acc_means.append(acc)
+                sampler_stat_means.append(sampler_stat)
+                if accepted_fraction is not None:
+                    accepted_means.append(accepted_fraction)
+                if mean_cluster_size is not None:
+                    cluster_size_means.append(mean_cluster_size)
+                if clusters_per_sweep is not None:
+                    cluster_count_means.append(clusters_per_sweep)
 
             summary[f"L{L}_beta_{beta:.4f}"] = {
                 "L": L,
                 "beta": beta,
+                "sampler": sampler,
                 "n_seeds": n_seeds,
                 "eq_steps": eq_steps,
                 "n_sweeps": n_sweeps,
@@ -111,14 +134,23 @@ def run_mixing_analysis(L_values: list[int] | None = None, betas: list[float] | 
                 "tau_energy_std": float(np.std(energy_taus, ddof=1)) if len(energy_taus) > 1 else 0.0,
                 "tau_magnetization_abs_mean": float(np.mean(mag_taus)),
                 "tau_magnetization_abs_std": float(np.std(mag_taus, ddof=1)) if len(mag_taus) > 1 else 0.0,
-                "acceptance_mean": float(np.mean(acc_means)),
-                "acceptance_std": float(np.std(acc_means, ddof=1)) if len(acc_means) > 1 else 0.0,
+                "sampler_stat_name": sampler_stat_name,
+                "sampler_stat_mean": float(np.mean(sampler_stat_means)),
+                "sampler_stat_std": float(np.std(sampler_stat_means, ddof=1)) if len(sampler_stat_means) > 1 else 0.0,
+                "acceptance_mean": float(np.mean(accepted_means)) if accepted_means else None,
+                "acceptance_std": float(np.std(accepted_means, ddof=1)) if len(accepted_means) > 1 else 0.0 if accepted_means else None,
+                "accepted_fraction_mean": float(np.mean(accepted_means)) if accepted_means else None,
+                "accepted_fraction_std": float(np.std(accepted_means, ddof=1)) if len(accepted_means) > 1 else 0.0 if accepted_means else None,
+                "mean_cluster_size_mean": float(np.mean(cluster_size_means)) if cluster_size_means else None,
+                "mean_cluster_size_std": float(np.std(cluster_size_means, ddof=1)) if len(cluster_size_means) > 1 else 0.0 if cluster_size_means else None,
+                "clusters_per_sweep_mean": float(np.mean(cluster_count_means)) if cluster_count_means else None,
+                "clusters_per_sweep_std": float(np.std(cluster_count_means, ddof=1)) if len(cluster_count_means) > 1 else 0.0 if cluster_count_means else None,
             }
             print(
                 f"  L={L} beta={beta:.4f}: "
                 f"tau_E={np.mean(energy_taus):.1f}, "
                 f"tau_|M|={np.mean(mag_taus):.1f}, "
-                f"acc={np.mean(acc_means):.3f}",
+                f"{sampler_stat_name}={np.mean(sampler_stat_means):.3f}",
                 flush=True,
             )
 
@@ -139,4 +171,4 @@ def run_mixing_analysis(L_values: list[int] | None = None, betas: list[float] | 
 
 
 if __name__ == "__main__":
-    run_mixing_analysis()
+    run_mixing_analysis(sampler="wolff")

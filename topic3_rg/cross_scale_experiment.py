@@ -46,7 +46,7 @@ from scipy import stats
 sys.path.insert(0, str(Path(__file__).parent.parent))
 from topic3_rg.ising import IsingModel, IsingConfig, BlockSpinRG
 
-OUT_DIR = Path("outputs/rg_bench/cross_scale")
+OUT_DIR = Path(os.environ.get("RG_CROSS_SCALE_OUT_DIR", "outputs/rg_bench/cross_scale"))
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 FIG_DIR = OUT_DIR / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)
@@ -62,10 +62,11 @@ def configure_runtime_cache() -> None:
     os.environ.setdefault("XDG_CACHE_HOME", str(xdg_dir))
 
 
-def print_protocol_banner() -> None:
+def print_protocol_banner(sampler: str = "wolff") -> None:
     print("\n" + "=" * 70, flush=True)
     print("  PAPER 3 MAIN BENCHMARK (PYTORCH MIRROR OF MLX PROTOCOL)", flush=True)
     print("  Protocol : patch-based transfer proxy", flush=True)
+    print(f"  Sampler  : {sampler}", flush=True)
     print("  Part A   : same-L baselines on native lattices", flush=True)
     print("  Part B   : train on 8x8, test on 16x16 top-left 8x8 patch", flush=True)
     print(f"  Output   : {OUT_DIR}", flush=True)
@@ -180,7 +181,8 @@ class SpinDataset(Dataset):
 # ─── Training ────────────────────────────────────────────────────────────────
 
 def train_and_eval(model_cls, beta, n_train, n_test, epochs, batch_size,
-                   seed, device, L_data, L_target, model_L_in, model_L_out):
+                   seed, device, L_data, L_target, model_L_in, model_L_out,
+                   sampler: str = "wolff"):
     """
     训练并评估单个配置。
     当 `L_data=8, L_target=16, model_L_in=64` 时，使用 patch-based transfer:
@@ -192,12 +194,12 @@ def train_and_eval(model_cls, beta, n_train, n_test, epochs, batch_size,
     rg = BlockSpinRG(block_size=2)
 
     # 训练数据始终在 L_data 原生尺度上生成
-    ising = IsingModel(IsingConfig(L=L_data, beta=beta, h=0.0, J=1.0))
+    ising = IsingModel(IsingConfig(L=L_data, beta=beta, h=0.0, J=1.0, sampler=sampler))
     ising.equilibriate(1000)
     fine_train, coarse_train = [], []
 
     for i in range(n_train + 200):
-        ising.metropolis_step(ising.state)
+        ising.sampling_step(ising.state)
         fine = ising.state.copy()
         fine_train.append(fine.flatten())
         coarse = rg.block_spin_transform(fine.copy())
@@ -206,11 +208,11 @@ def train_and_eval(model_cls, beta, n_train, n_test, epochs, batch_size,
     coarse_train = np.array(coarse_train[:n_train])
 
     # 测试数据在 L_target 上生成；patch-based transfer 时只抽取左上角 8×8 patch
-    ising_test = IsingModel(IsingConfig(L=L_target, beta=beta, h=0.0, J=1.0))
+    ising_test = IsingModel(IsingConfig(L=L_target, beta=beta, h=0.0, J=1.0, sampler=sampler))
     ising_test.equilibriate(1000)
     fine_test, coarse_test = [], []
     for _ in range(n_test + 100):
-        ising_test.metropolis_step(ising_test.state)
+        ising_test.sampling_step(ising_test.state)
         fine = ising_test.state.copy()
         if model_L_in == 64 and L_target == 16:
             fine_in = fine[:8, :8]
@@ -307,10 +309,11 @@ def bootstrap_ci(data, stat=np.mean, n_boot=10000, ci=0.95):
 # ─── Main experiment ──────────────────────────────────────────────────────────
 
 def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
-                                epochs=200, batch_size=32):
+                                epochs=200, batch_size=32, sampler: str = "wolff"):
     print("\n" + "="*70)
     print("  CROSS-SCALE TRANSFER EXPERIMENT (R2)")
     print(f"  {n_seeds} seeds, N_train={n_train}, epochs={epochs}")
+    print(f"  sampler={sampler}")
     print("="*70)
 
     device = "cpu"
@@ -350,10 +353,16 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         with open(ckpt_a) as f:
             reader = csv.DictReader(f)
             results = list(reader)
-        if len(results) == total:
+        for row in results:
+            row.setdefault("sampler", "metropolis")
+        sampler_matches = all(row.get("sampler") == sampler for row in results)
+        if len(results) == total and sampler_matches:
             print(f"  [RESUME] Part A already complete ({len(results)} rows) — skipping")
         else:
-            print(f"  [RESUME] Part A partial ({len(results)}/{total}) — recomputing from scratch")
+            if not sampler_matches and results:
+                print(f"  [RESUME] Part A sampler mismatch ({results[0].get('sampler')} != {sampler}) — recomputing from scratch")
+            else:
+                print(f"  [RESUME] Part A partial ({len(results)}/{total}) — recomputing from scratch")
             results = []
     else:
         results = []
@@ -378,9 +387,10 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
             seed=cfg["seed"], device=device,
             L_data=cfg["L_data"], L_target=cfg["L_target"],
             model_L_in=cfg["model_L_in"], model_L_out=cfg["model_L_out"],
+            sampler=sampler,
         )
         results.append({**cfg, "train_mse": train_mse, "test_mse": test_mse,
-                        "scale_distance": 0, "same_L": True, "part": "A"})
+                        "scale_distance": 0, "same_L": True, "part": "A", "sampler": sampler})
 
         # Checkpoint every 40 runs and at end of Part A
         if (i+1) % 40 == 0 or (i+1) == total:
@@ -416,16 +426,22 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         with open(ckpt_b) as f:
             reader = csv.DictReader(f)
             part_b_results = list(reader)
-        if len(part_b_results) == total + total_b:
+        for row in part_b_results:
+            row.setdefault("sampler", "metropolis")
+        sampler_matches = all(row.get("sampler") == sampler for row in part_b_results)
+        if len(part_b_results) == total + total_b and sampler_matches:
             results = part_b_results
             resumed_b_from = total_b
             print(f"  [RESUME] Part B already complete ({len(results)} total rows) — skipping to plots")
-        elif len(part_b_results) > total:
+        elif len(part_b_results) > total and sampler_matches:
             resumed_b_from = len(part_b_results) - total
             results = part_a_results + part_b_results[total:]
             print(f"  [RESUME] Part B partial ({len(part_b_results)}/{total+total_b} total) — resuming from checkpoint")
         else:
-            print(f"  [RESUME] Part B checkpoint is incompatible ({len(part_b_results)}/{total+total_b}); rebuilding Part B from fresh Part A results")
+            if not sampler_matches and part_b_results:
+                print(f"  [RESUME] Part B sampler mismatch ({part_b_results[0].get('sampler')} != {sampler}); rebuilding Part B from fresh Part A results")
+            else:
+                print(f"  [RESUME] Part B checkpoint is incompatible ({len(part_b_results)}/{total+total_b}); rebuilding Part B from fresh Part A results")
             results = part_a_results.copy()
     else:
         results = part_a_results.copy()
@@ -447,9 +463,10 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
             seed=cfg["seed"], device=device,
             L_data=cfg["L_data"], L_target=cfg["L_target"],
             model_L_in=cfg["model_L_in"], model_L_out=cfg["model_L_out"],
+            sampler=sampler,
         )
         results.append({**cfg, "train_mse": train_mse, "test_mse": test_mse,
-                        "scale_distance": 8, "same_L": False, "part": "B"})
+                        "scale_distance": 8, "same_L": False, "part": "B", "sampler": sampler})
 
         # Checkpoint every 20 runs and at end of Part B
         if (i+1) % 20 == 0 or (i+1) == total_b:
@@ -600,7 +617,33 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         plt.close()
         print(f"  Saved: {FIG_DIR}/model_comparison_bars.png", flush=True)
 
-        # Figure 2: Cross-scale degradation
+        # Figure 2: Temperature dependence at L=16 for the two main baselines
+        fig, ax = plt.subplots(figsize=(7, 5))
+        beta_ticks = np.array(betas, dtype=float)
+        for model, color in [("MLP", "steelblue"), ("Linear", "coral")]:
+            means = []
+            stds = []
+            for beta in betas:
+                grp = df_same[(df_same["L_data"] == 16) &
+                              (df_same["beta"] == beta) &
+                              (df_same["model"] == model)]["test_mse"]
+                means.append(grp.mean() if len(grp) > 0 else np.nan)
+                stds.append(grp.std(ddof=1) if len(grp) > 1 else 0.0)
+            means = np.array(means, dtype=float)
+            stds = np.array(stds, dtype=float)
+            ax.plot(beta_ticks, means, marker="o", color=color, linewidth=2, label=model)
+            ax.fill_between(beta_ticks, means - stds, means + stds, color=color, alpha=0.2)
+        ax.set_xlabel(r"$\beta$")
+        ax.set_ylabel("Test MSE")
+        ax.set_title("L=16 Temperature Dependence")
+        ax.grid(True, alpha=0.3)
+        ax.legend()
+        plt.tight_layout()
+        plt.savefig(FIG_DIR / "temperature_dependence.png", dpi=150, bbox_inches="tight")
+        plt.close()
+        print(f"  Saved: {FIG_DIR}/temperature_dependence.png", flush=True)
+
+        # Figure 3: Cross-scale degradation
         fig, axes = plt.subplots(1, 3, figsize=(15, 5))
         for col, beta in enumerate(betas):
             ax = axes[col]
@@ -635,7 +678,7 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         plt.close()
         print(f"  Saved: {FIG_DIR}/cross_scale_degradation.png", flush=True)
 
-        # Figure 3: All same-L results heatmap
+        # Figure 4: All same-L results heatmap
         for model in ["MLP", "Linear"]:
             fig, ax = plt.subplots(figsize=(8, 6))
             matrix = np.full((len(L_values), len(betas)), np.nan)
@@ -759,15 +802,16 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
         "wall_time_s": elapsed_total,
         "n_partA": total, "n_partB": total_b,
         "L_values": L_values, "betas": betas,
+        "sampler": sampler,
     }
     return df, stat_results, summary
 
 
 if __name__ == "__main__":
     configure_runtime_cache()
-    print_protocol_banner()
+    print_protocol_banner(sampler="wolff")
     t0 = time.time()
-    df, stats, summary = run_cross_scale_experiment(n_seeds=10)
+    df, stats, summary = run_cross_scale_experiment(n_seeds=10, sampler="wolff")
     elapsed = time.time() - t0
     print(f"\n{'='*70}", flush=True)
     print(f"  COMPLETE in {elapsed:.0f}s ({elapsed/3600:.2f}h)")

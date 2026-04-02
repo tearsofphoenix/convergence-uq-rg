@@ -28,11 +28,11 @@ Bayesian methods but CP remains stable.
 ### Paper 3 — RG × Neural Networks
 `paper3_rg.tex` | Target: PRE / JFM / NeurIPS
 
-Empirical evidence that neural networks implicitly implement renormalization
-group (RG) transformations. 2D Ising model tests: NN learns block-spin
-RG; weight spectral radius peaks at $\beta_c$; scale transfer governed by
-RG flow distance; NN fixed-point convergence at criticality. Turbulence
-closure reproduces Kolmogorov $k^{-5/3}$ spectrum.
+Benchmark-design negative result on RG-like learning claims. The current Paper 3
+version centers a Wolff-sampled 2D Ising majority-vote benchmark showing that,
+on this local block-spin task, a linear baseline beats a standard MLP at
+criticality. Whole-lattice transfer, XY nonlinear coarse-graining, and Jacobian
+spectra are retained as diagnostics rather than co-equal primary evidence.
 
 ---
 
@@ -98,6 +98,21 @@ pdflatex paper3_rg.tex
 python scripts/build_changed_tex.py --files paper3_rg.tex
 python scripts/build_changed_tex.py --staged --stage-pdfs
 ```
+
+## Paper 3 Repro
+
+See [docs/paper3_rg_repro.md](/Users/isaac/workspace/AI/hermes/convergence-uq-rg/docs/paper3_rg_repro.md) for the current negative-result / benchmark-design workflow, including:
+
+- Wolff-sampled main benchmark outputs
+- Exploratory transfer and mixing diagnostics
+- XY nonlinear diagnostic branch
+- Jacobian batch summaries
+
+Additional submission-oriented notes:
+
+- [docs/paper3_contribution_summary.md](/Users/isaac/workspace/AI/hermes/convergence-uq-rg/docs/paper3_contribution_summary.md)
+- [docs/paper3_submission_checklist.md](/Users/isaac/workspace/AI/hermes/convergence-uq-rg/docs/paper3_submission_checklist.md)
+- [docs/paper3_cover_letter.md](/Users/isaac/workspace/AI/hermes/convergence-uq-rg/docs/paper3_cover_letter.md)
 
 ##发表路线图
 

@@ -5,7 +5,7 @@
 \usepackage{geometry}
 \geometry{margin=1in,headheight=14.5pt}
 
-\usepackage{microtype}
+\usepackage[expansion=false]{microtype}
 \usepackage{mathtools}
 \usepackage{amsmath,amssymb,amsthm}
 \usepackage{booktabs}
@@ -37,6 +37,8 @@
 \declaretheorem[style=thmstyle,name=Theorem,numbered=no]{theo}
 \declaretheorem[style=thmstyle,name=Corollary,numbered=no]{coro}
 \declaretheorem[style=thmstyle,name=Remark,numbered=no]{rem}
+\let\proof\relax
+\let\endproof\relax
 \declaretheorem[style=proofstyle,name=Proof]{proof}
 
 \def\reals{{\mathbb R}}
@@ -82,10 +84,17 @@
         Specializing to common PDEs yields explicit rates:
         Heat 1D ($\alpha=0.50$) and Poisson 2D ($\alpha=0.50$).
         We validate these predictions empirically using analytical ground truth
-        solutions; MSE decreases monotonically from $N=50$ to $N=400$ in both cases.
-        The empirical exponents ($\hat\gamma=0.93$ for Heat 1D, $\hat\gamma=1.61$
-        for Poisson 2D) exceed the theoretical rate of $0.50$, a phenomenon we
-        discuss as \emph{neural superconvergence}.
+        solutions and $n=10$ independent training seeds per PDE
+        ($42,43,44,45,46,47,48,49,7777,2024$).  For each seed we fit
+        $\mathrm{MSE}(N)=C N^{-\hat\gamma}$ over $N \in \{50,100,200,400\}$ and
+        report sample mean $\pm$ standard deviation.  The fitted exponents are
+        $\hat\gamma = 1.23 \pm 0.63$ for Heat 1D and $\hat\gamma = 1.42 \pm 0.18$
+        for Poisson 2D, against the theoretical risk exponent $1.00$.
+        Poisson 2D shows a stable $17.3\times$ mean MSE reduction from $N=50$ to
+        $N=400$, while Heat 1D exhibits substantially larger seed-to-seed variance
+        and only a $2.9\times$ mean reduction.  We therefore interpret
+        superconvergence as statistically robust for Poisson 2D and only
+        average-case for Heat 1D.
         The paper focuses on DeepONet; FNO extensions are discussed as future work.
     }
 \end{titlepage}
@@ -173,7 +182,7 @@ Current theory does not answer the following concrete question:
 
 This paper answers the question in the minimax framework, provides a
 complete proof sketch with all assumptions stated explicitly,
-and validates the theoretical exponent with a single-run power-law fit.
+and validates the theoretical exponent with a 10-seed statistical power-law fit.
 
 What IS known about neural operator convergence?  The literature provides
 several building blocks.  Universal approximation results date to
@@ -209,12 +218,15 @@ setting of elliptic and parabolic benchmark PDEs.
         (Corollary~\ref{cor:rates}); see Section~\ref{sec:proof_ingredients}.
     \item[C2] \textbf{Explicit rates} for Heat 1D ($\alpha=0.50$, $d=1$, $\beta=1$)
         and Poisson 2D ($\alpha=0.50$, $d=2$, $\beta=2$).
-    \item[C3] \textbf{Empirical validation}: single training run per PDE,
-        reporting fitted exponent $\hat\gamma$ from log-log regression
-        over $N \in \{50, 100, 200, 400\}$.
+    \item[C3] \textbf{Empirical validation}: 10 independent training runs per PDE,
+        reporting fitted exponent $\hat\gamma$ from seed-wise log-log regression
+        over $N \in \{50, 100, 200, 400\}$ and aggregating all empirical quantities
+        as mean $\pm$ standard deviation across seeds.
     \item[C4] \textbf{Honest uncertainty}: theory is an upper bound;
-        empirical $\hat\gamma > 2\alpha_{\rm theor}$ is reported and
-        discussed as neural superconvergence (Section~\ref{sec:superconvergence}).
+        the 10-seed statistics show that Poisson 2D robustly satisfies
+        $\hat\gamma > 2\alpha_{\rm theor}$ on all seeds, whereas Heat 1D has much
+        larger seed-to-seed variance and only average-case superconvergence
+        (Section~\ref{sec:superconvergence}).
 \end{itemize}
 
 \subsection{Scope and Limitations}
@@ -465,7 +477,7 @@ effects.
         R(\hat\theta_N) \;\lesssim\; N^{-\frac{2\beta}{d+\beta}} .
         \label{eq:rate_N}
     \end{equation}
-    Defining $\alpha \defeq \beta/(d+\beta)$ so that the risk decays as
+    Defining $\alpha \triangleq \beta/(d+\beta)$ so that the risk decays as
     $N^{-2\alpha}$, we have for the two benchmark PDEs:
     \begin{center}
         \begin{tabular}{lcccc}
@@ -586,12 +598,12 @@ the proof is omitted due to space constraints.
 \begin{theo}[Minimax lower bound (sketch)]
     \label{theo:lower}
     Let $\mathcal{G}(s,\beta)$ be the class of PDE solution operators satisfying
-    Assumption~\ref{ass:regularity}.  For any estimator $\hat\mathcal{G}_N$ trained
+    Assumption~\ref{ass:regularity}.  For any estimator $\hat{\mathcal{G}}_N$ trained
     on $N$ samples:
     \begin{equation}
-        \inf_{\hat\mathcal{G}_N}\;
+        \inf_{\hat{\mathcal{G}}_N}\;
         \sup_{\mathcal{G}^\dagger \in \mathcal{G}(s,\beta)}\;
-        \EE[\|\hat\mathcal{G}_N - \mathcal{G}^\dagger\|_{L^2}]
+        \EE[\|\hat{\mathcal{G}}_N - \mathcal{G}^\dagger\|_{L^2}]
         \;\geq\;
         c \cdot N^{-\frac{\beta}{d+\beta} - o(1)}.
         \label{eq:lower_bound}
@@ -675,26 +687,27 @@ solely to the DeepONet approximation and estimation, enabling a clean test of
 the theoretical predictions.
 
 \textbf{Data splits.}  Training set size $N \in \{50, 100, 200, 400\}$.
-Test set: fixed 100 samples (seed=9000, independent of training seeds:
-2000 for Heat, 3000 for Poisson).  This protocol ensures test samples
-are genuinely unseen.
+For each PDE, we repeat training with 10 seeds
+$\{42,43,44,45,46,47,48,49,7777,2024\}$.
+Test set: fixed 100 samples (seed=9000), independent of all training seeds.
+This protocol ensures test samples are genuinely unseen.
 
 \textbf{DeepONet configuration.}  Branch/trunk networks: width=128, depth=3,
 $p=50$ trunk basis functions.  Adam optimizer, lr=$10^{-3}$, batch=32,
 500 epochs.  No early stopping; final model evaluated on fixed test set.
 
-\textbf{Evaluation metric.}  For each $(N, \text{PDE})$ pair, we run the
-training procedure once (single training run per configuration) and record
-the test MSE.  We fit a power law
+\textbf{Evaluation metric.}  For each $(N, \text{PDE}, \text{seed})$ triple,
+we run the training procedure once and record the test MSE.  For each seed we fit a power law
 \begin{equation}
     \text{MSE}(N) = C \cdot N^{-\hat\gamma}
     \label{eq:power_law}
 \end{equation}
 via log-log linear regression over the four values of $N$,
-obtaining a single fitted exponent $\hat\gamma$ per PDE.
-The MSE range (Table~\ref{tab:convergence_rates}) is reported as an
-informal uncertainty indicator: a consistent monotonic decrease across
-all four $N$ values indicates a reliable trend, even without multiple seeds.
+obtaining one fitted exponent $\hat\gamma_s$ per seed.
+We report sample mean $\pm$ sample standard deviation across the 10 seeds
+for every MSE entry and for $\hat\gamma$.
+Throughout this section, the symbol ``$\pm$'' denotes seed-to-seed variability
+rather than regression uncertainty of a single fit.
 
 \textbf{Training / evaluation pipeline.}
 \begin{enumerate}
@@ -703,7 +716,8 @@ all four $N$ values indicates a reliable trend, even without multiple seeds.
     \item \textbf{Model:} DeepONet (branch+trunk, width=128, $p=50$).
     \item \textbf{Training:} Adam, lr=$10^{-3}$, 500 epochs, batch=32.
     \item \textbf{Evaluation:} fixed 100-sample test set (seed 9000).
-    \item \textbf{Reporting:} $\hat\gamma$ from power-law fit over $N \in \{50,100,200,400\}$.
+    \item \textbf{Reporting:} seed-wise $\hat\gamma$ from power-law fit over
+        $N \in \{50,100,200,400\}$, then mean $\pm$ std across 10 training seeds.
 \end{enumerate}
 
 \subsection{Results}
@@ -711,76 +725,87 @@ all four $N$ values indicates a reliable trend, even without multiple seeds.
 \begin{table}[ht]
     \centering
     \caption{Empirical convergence rates for DeepONet.
-        Fitted exponent $\hat\gamma$ from power-law MSE $\sim N^{-\hat\gamma}$
-        (single training run per PDE; MSE range over $N=50\to400$ below).
+        For each seed we fit $\mathrm{MSE}(N) \sim N^{-\hat\gamma}$ over
+        $N \in \{50,100,200,400\}$ and then report sample mean $\pm$ sample
+        standard deviation across 10 independent training seeds.
         The theory (Corollary~\ref{cor:rates}) predicts a risk exponent
         $N^{-2\beta/(d+\beta)}$, i.e. $\alpha_{\rm theor} = \beta/(d+\beta) = 0.50$
         and risk exponent $2\alpha_{\rm theor} = 1.00$ for both PDEs.
-        The empirical MSE exponents $\hat\gamma$ exceed the theoretical risk exponent
-    in Poisson 2D, a phenomenon discussed in Section~\ref{sec:superconvergence}.}
-    \begin{tabular}{lccccc}
+        Poisson 2D exceeds the theoretical exponent on all 10 seeds; Heat 1D
+        exceeds it on 7 of 10 seeds and shows substantially larger variance.}
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{lcccc}
         \toprule
-        \textbf{PDE} & $d$ &
-        $\hat\gamma$ (MSE exponent) &
-        $2\alpha_{\rm theor}$ (risk exponent) &
-        \textbf{MSE range} ($N=50\to400$) & Ratio \\
+        \textbf{PDE} &
+        $\hat\gamma$ (mean $\pm$ std) &
+        $2\alpha_{\rm theor}$ &
+        \textbf{Mean test MSE} ($\pm$ std across seeds) &
+        Mean reduction \\
         \midrule
-        Heat 1D       & 1 &
-        $0.93$ & $1.00$ &
-        $2.1\times10^{-5} \to 3\times10^{-6}$ & $1.86\times$ \\
-        Poisson 2D    & 2 &
-        $1.61$ & $1.00$ &
-        $3.7\times10^{-2} \to 1.4\times10^{-3}$ & $3.22\times$ \\
+        Heat 1D &
+        $1.23 \pm 0.63$ & $1.00$ &
+        \shortstack[l]{$N=50$: $(3.10 \pm 1.58)\times10^{-5}$ \\
+                        $N=100$: $(7.27 \pm 10.82)\times10^{-5}$ \\
+                        $N=200$: $(1.06 \pm 2.18)\times10^{-5}$ \\
+                        $N=400$: $(1.08 \pm 2.46)\times10^{-5}$} &
+        $2.87\times$ \\
+        Poisson 2D &
+        $1.42 \pm 0.18$ & $1.00$ &
+        \shortstack[l]{$N=50$: $(3.79 \pm 0.59)\times10^{-2}$ \\
+                        $N=100$: $(2.20 \pm 0.29)\times10^{-2}$ \\
+                        $N=200$: $(7.78 \pm 2.81)\times10^{-3}$ \\
+                        $N=400$: $(2.19 \pm 0.85)\times10^{-3}$} &
+        $17.33\times$ \\
         \bottomrule
     \end{tabular}
+    }
     \label{tab:convergence_rates}
 \end{table}
 
 \begin{itemize}
-    \item Both PDEs exhibit clear power-law convergence in $N$:
-        MSE decreases monotonically as the training set grows.
-    \item The empirical MSE exponent $\hat\gamma$ is close to the theoretical
-        risk exponent $2\alpha_{\rm theor}=1.00$ for Heat 1D
-        ($\hat\gamma=0.93 \approx 1.00$) and substantially exceeds it for
-        Poisson 2D ($\hat\gamma=1.61 > 1.00$).
-        This \emph{superconvergence} is discussed in Section~\ref{sec:superconvergence}.
-    \item These results are from a single training run per PDE;
-        the MSE range (decreasing consistently across all four $N$ values)
-        provides an informal uncertainty indicator.
-    \item Heat 1D: $2.1\times10^{-5}$ (N=50) $\to$
-        $3\times10^{-6}$ (N=400), a 7-fold reduction.
-    \item Poisson 2D: $3.7\times10^{-2}$ (N=50) $\to$
-        $1.4\times10^{-3}$ (N=400), a 26-fold reduction.
+    \item The 10-seed statistics change the qualitative picture relative to a
+        single run.  Poisson 2D retains a clear downward trend in mean MSE as
+        $N$ increases, whereas Heat 1D does \emph{not} have monotone mean MSE
+        across all four $N$ values because a few seeds produce large outliers
+        at $N=100$ or $N=400$.
+    \item The mean fitted exponent is $\hat\gamma = 1.23 \pm 0.63$ for Heat 1D
+        and $\hat\gamma = 1.42 \pm 0.18$ for Poisson 2D.  Poisson 2D exceeds the
+        theoretical risk exponent $2\alpha_{\rm theor}=1.00$ on all 10 seeds;
+        Heat 1D does so on 7 of 10 seeds, but with much larger variance.
+    \item The mean MSE reduction from $N=50$ to $N=400$ is $2.87\times$ for
+        Heat 1D and $17.33\times$ for Poisson 2D.
+    \item Statistical reporting note: each $\hat\gamma$ is obtained from a
+        separate seed-wise log-log fit, and every ``$\pm$'' in
+        Table~\ref{tab:convergence_rates} denotes the sample standard deviation
+        across the 10 training seeds.
 \end{itemize}
 
-The ratio column (MSE at $N=50$ divided by MSE at $N=400$) reveals an important
-pattern: Poisson 2D achieves a $3.22\times$ reduction versus $1.86\times$ for Heat 1D,
-despite both theoretically predicting the same risk exponent $2\alpha=1.00$.
-The discrepancy is even more striking in the fitted exponents:
-$\hat\gamma=1.61$ for Poisson 2D versus $\hat\gamma=0.93$ for Heat 1D.
-This connects to the curse of dimensionality in approximation theory.  In 1D,
-the covering-number complexity term $\sqrt{WL\log p/N}$ grows slowly with $N$,
-so the bias term (i) dominates across the range of $N$ studied; the observed
-$\hat\gamma \approx 0.93$ is therefore close to the theoretical $1.00$.  In 2D,
-the covering-number complexity term is larger in absolute terms (the hidden
-constant in $\sqrt{WL\log p/N}$ grows with the ambient dimension), which means
-that for moderate $N$ the complexity term contributes more substantially to
-the error, and the bias-variance trade-off plays out differently.  Moreover,
-the 2D domain has more modes at a given frequency cutoff: the number of Fourier
-modes with $|k| \leq m$ scales as $m^2$ in 2D versus $m$ in 1D, so the
-trunk basis with $p=50$ captures a larger fraction of the total energy in 1D
-than in 2D.  This asymmetry may explain why the 2D problem exhibits faster
-effective convergence (larger $\hat\gamma$) — the DeepONet is approximating a
-smoother effective truncation of the Fourier expansion in 2D, and the higher
-dimensionality amplifies this effect.
+The contrast between the two PDEs is sharper after aggregating 10 seeds.
+Poisson 2D exhibits a statistically stable superconvergence signal:
+every seed yields $\hat\gamma > 1.00$, and both the per-seed exponents
+and the mean MSE values decrease coherently with $N$.
+Heat 1D is much less stable under the same architecture and training budget.
+Its mean exponent still exceeds $1.00$, but the standard deviation is large
+($0.63$), and the mean test MSE is dominated by a few high-loss seeds at
+$N=100$ and $N=400$.  The current upper bound predicts the asymptotic
+exponent but does not control finite-sample variance across optimizer
+trajectories; that variance appears mild for Poisson 2D and pronounced for
+Heat 1D in the present regime.  This is exactly why multi-seed statistical
+reporting is necessary: a single run can either understate or overstate the
+effective convergence rate.
 
 \subsection{Discussion: Superconvergence}
 \label{sec:superconvergence}
 
-The observed exponents $\hat\gamma=0.93$ (Heat 1D) and $\hat\gamma=1.61$ (Poisson 2D)
-substantially exceed the theoretical risk exponent $2\alpha_{\rm theor}=1.00$.
-This phenomenon, which we term \textbf{neural superconvergence}, has been noted
-in related contexts \citep{brugiapaglia2026tour,kutyniok2022nn}.
+The 10-seed mean exponents are $\hat\gamma=1.23 \pm 0.63$ (Heat 1D) and
+$\hat\gamma=1.42 \pm 0.18$ (Poisson 2D), both above the theoretical risk
+exponent $2\alpha_{\rm theor}=1.00$ in expectation.
+However, the statistical strength of this effect is different across the two PDEs:
+Poisson 2D exceeds $1.00$ on all 10 seeds, whereas Heat 1D does so on only 7 of
+10 seeds and exhibits much larger variance.  We therefore use the term
+\textbf{neural superconvergence} most confidently for Poisson 2D, and only as an
+average-case description for Heat 1D.  Similar phenomena have been noted in
+related contexts \citep{brugiapaglia2026tour,kutyniok2022nn}.
 Possible explanations include:
 
 \begin{enumerate}
@@ -822,7 +847,8 @@ Possible explanations include:
         actual bias is essentially negligible compared to the estimation error,
         and the MSE is dominated by the variance term, which decays as $N^{-1}$
         in the $N$-dependent complexity terms.  This pushes the effective exponent
-        toward $1.00$ or higher, consistent with the observed superconvergence.
+        toward $1.00$ or higher, consistent with the mean exponents reported here
+        and especially with the robust Poisson 2D signal.
 
     \item \textbf{Implicit regularization.}
         The Adam optimizer with fixed learning rate $\eta = 10^{-3}$ induces an
@@ -839,18 +865,19 @@ Possible explanations include:
         in \citet{yarotsky2017neural,petersen2018optimal} and observed empirically
         in vision models.  For our PDEs, the dominant error modes are precisely
         the low-frequency Fourier components of the solution; if Adam learns these
-        first, the error decays faster than the worst-case rate, explaining the
-        superconvergence.  The connection between Adam's implicit regularization
-        and spectral prioritization is an active research area, and our experiments
-        provide concrete evidence of this phenomenon in the operator learning
-        setting.
+        first, the error decays faster than the worst-case rate, helping explain
+        the average superconvergence signal.  The connection between Adam's
+        implicit regularization and spectral prioritization is an active research
+        area, and our experiments provide concrete evidence of this phenomenon in
+        the operator learning setting.
 \end{enumerate}
 
 A rigorous analysis of superconvergence is beyond the scope of this paper;
 we report it as an empirical observation.  The honest claim is that the
-theoretical risk exponent ($N^{-1.00}$, i.e. $2\alpha_{\rm theor}=1.00$) and the
-observed empirical MSE exponents ($\hat\gamma=0.93$ for Heat 1D, $\hat\gamma=1.61$
-for Poisson 2D) are all power laws with empirically verified monotonic decay.
+theoretical risk exponent ($N^{-1.00}$, i.e. $2\alpha_{\rm theor}=1.00$) should
+be compared against a \emph{distribution} of empirical MSE exponents, not a
+single run.  In that 10-seed sense, Poisson 2D shows a robust superconvergence
+signal, whereas Heat 1D remains much more variable.
 
 % ===== SECTION 5: CONCLUSION =====
 \section{Conclusion}
@@ -860,27 +887,27 @@ We established a minimax upper bound for DeepONet (Theorem~\ref{theo:deeponet})
 learning PDE solution operators in Sobolev spaces.  The theory predicts a risk
 exponent $2\alpha_{\rm theor} = 2\beta/(d+\beta) = 1.00$ for both Heat 1D and
 Poisson 2D ($\alpha_{\rm theor}=0.50$).
-Empirical validation with single-run power-law fits shows clear convergence
-(MSE decreasing 7--26$\times$ across $N \in \{50,400\}$), with fitted MSE exponents
-$\hat\gamma=0.93$ (Heat 1D, close to the theoretical 1.00) and
-$\hat\gamma=1.61$ (Poisson 2D, substantially exceeding 1.00).
+Empirical validation with 10-seed power-law fits reveals a pronounced contrast
+between the two PDEs.  Heat 1D yields $\hat\gamma=1.23 \pm 0.63$ and a
+$2.87\times$ reduction in mean MSE from $N=50$ to $N=400$, while Poisson 2D
+yields $\hat\gamma=1.42 \pm 0.18$ and a $17.33\times$ mean MSE reduction over
+the same range.
 
 The paper makes \emph{focused, auditable claims}:
 Theorem~\ref{theo:deeponet} is an upper bound (not optimality), the lower bound
 is explicitly labeled a sketch, and the empirical rate is reported with the
-caveat that it is a single-run measurement.
+caveat that it is a finite-sample, 10-seed measurement with explicit mean $\pm$
+std reporting.
 
-The superconvergence finding ($\hat\gamma > 2\alpha_{\rm theor}$) has significant
-implications for neural operator learning theory.  It suggests that the current
-minimax upper bounds are pessimistic for structured PDEs with smooth solutions,
-and that future theoretical work should exploit additional structure — such as
-the linearity of the solution operator with respect to the input, the sinusoidal
-structure of the Fourier basis, or the implicit regularization of adaptive optimizers
-— to tighten the rates.  The gap between theory ($\alpha=0.50$) and practice
-($\hat\gamma=1.61$ for Poisson 2D) indicates that there is substantial room for
-refined approximation-theoretic analyses that go beyond the worst-case Sobolev
-regularity assumption.  In particular, characterizing the function spaces for
-which DeepONet achieves rates faster than $N^{-1.00}$ would be a major advance.
+The superconvergence finding has significant implications for neural operator
+learning theory, but the new statistics show that its strength is PDE-dependent.
+For structured elliptic problems such as Poisson 2D, the current minimax upper
+bounds appear genuinely pessimistic: every seed exceeds $N^{-1.00}$, and the
+seed-to-seed variation is modest.  For Heat 1D, by contrast, the mean exponent
+still exceeds $1.00$ but the dispersion is large enough that single-run evidence
+would have been misleading.  Future theoretical work should therefore explain not
+only the average rate but also the optimizer-induced variance across training
+trajectories.
 
 For practitioners, the practical implication is that DeepONet is a reliable
 choice for learning smooth PDE solution operators, and that modest training set
@@ -891,11 +918,12 @@ increases, which is consistent with practical experience: high-dimensional
 problems (e.g., Kolmogorov equations in finance, high-dimensional stochastic
 PDEs) will require larger training sets and possibly architecture modifications
 (such as adapted trunk bases or dimension-reduction techniques) to achieve
-comparable accuracy.  The superconvergence observed for Poisson 2D suggests that
-for elliptic problems in moderate dimensions, DeepONet may be more efficient
+comparable accuracy.  The robust superconvergence observed for Poisson 2D suggests
+that for elliptic problems in moderate dimensions, DeepONet may be more efficient
 than the worst-case theory indicates, making it an attractive surrogate model
 choice for uncertainty quantification workflows where many forward evaluations
-are needed.
+are needed.  The Heat 1D statistics, however, also show that practitioners should
+not trust a single seed when benchmarking convergence claims.
 
 \textbf{Not covered in this paper} (open problems):
 \begin{itemize}
@@ -970,6 +998,10 @@ are needed.
     \bibitem[Brugiapaglia et al., 2026]{brugiapaglia2026tour} Brugiapaglia, S., Franco, N. R., \& Nelsen, N. H. (2026). A short tour of operator learning theory: Convergence rates, statistical limits, and open questions. \textit{arXiv:2603.00819}. Available at: \url{https://arxiv.org/abs/2603.00819}.
 
     \bibitem[de Hoop et al., 2022]{dehoop2022multilevel} de Hoop, M. V., Kovachki, N. B., \& Stuart, A. M. (2022). Minimax optimal kernel operator learning via multilevel training. \textit{arXiv:2209.14430}. In \textit{ICLR} 2023.
+
+    \bibitem[Bouchard et al., 2023]{bouchard2023minimax} Bouchard, R., Moshayev, I., \& Yehudayoff, A. (2023). On the minimax rate of operator learning. \textit{arXiv:2305.00142}.
+
+    \bibitem[Keskar et al., 2017]{keskar2017implicit} Keskar, N. S., Mudigere, D., Nocedal, J., Smelyanskiy, M., \& Tang, P. T. P. (2017). On large-batch training for deep learning: Generalization gap and sharp minima. \textit{ICLR}.
 
     \bibitem[Nelsen \& Stuart, 2024]{nelsen2024rfm} Nelsen, N. H. \& Stuart, A. M. (2024). Random feature models for operator learning. \textit{JMLR}, 25:1--50.
 

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import csv
 import json
+import os
 import time
 from pathlib import Path
 
@@ -27,22 +28,23 @@ from topic3_rg.ising import BlockSpinRG, IsingConfig, IsingModel
 from topic3_rg.cross_scale_experiment import FlatMLP, LinearModel
 
 
-OUT_DIR = Path("outputs/rg_bench/whole_lattice_transfer")
+OUT_DIR = Path(os.environ.get("RG_WHOLE_LATTICE_OUT_DIR", "outputs/rg_bench/whole_lattice_transfer"))
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 
 DEVICE = "cpu"
 RG = BlockSpinRG(block_size=2)
 
 
-def generate_dataset(L: int, beta: float, n_samples: int, seed: int, eq_steps: int = 1000) -> tuple[np.ndarray, np.ndarray]:
+def generate_dataset(L: int, beta: float, n_samples: int, seed: int, eq_steps: int = 1000,
+                     sampler: str = "wolff") -> tuple[np.ndarray, np.ndarray]:
     np.random.seed(seed)
     torch.manual_seed(seed)
-    ising = IsingModel(IsingConfig(L=L, beta=beta, h=0.0, J=1.0))
+    ising = IsingModel(IsingConfig(L=L, beta=beta, h=0.0, J=1.0, sampler=sampler))
     ising.equilibriate(eq_steps)
 
     fine, coarse = [], []
     for _ in range(n_samples + 200):
-        ising.metropolis_step(ising.state)
+        ising.sampling_step(ising.state)
         s = ising.state.copy()
         fine.append(s.astype(np.float32).reshape(-1))
         coarse.append(RG.block_spin_transform(s).astype(np.float32).reshape(-1))
@@ -58,8 +60,9 @@ def build_model(model_name: str, L_in: int, L_out: int) -> nn.Module:
 
 
 def train_source_model(model_name: str, source_L: int, beta: float, seed: int,
-                       n_train: int, epochs: int, batch_size: int) -> tuple[nn.Module, float]:
-    fine_train, coarse_train = generate_dataset(source_L, beta, n_train, seed)
+                       n_train: int, epochs: int, batch_size: int,
+                       sampler: str = "wolff") -> tuple[nn.Module, float]:
+    fine_train, coarse_train = generate_dataset(source_L, beta, n_train, seed, sampler=sampler)
     loader = DataLoader(
         TensorDataset(torch.from_numpy(fine_train), torch.from_numpy(coarse_train)),
         batch_size=batch_size,
@@ -117,15 +120,15 @@ def apply_model_whole_lattice(model: nn.Module, source_L: int, fine_batch: np.nd
 
 
 def evaluate_on_target(model: nn.Module, source_L: int, target_L: int, beta: float,
-                       seed: int, n_test: int) -> float:
+                       seed: int, n_test: int, sampler: str = "wolff") -> float:
     np.random.seed(seed + 10000)
     torch.manual_seed(seed + 10000)
-    ising = IsingModel(IsingConfig(L=target_L, beta=beta, h=0.0, J=1.0))
+    ising = IsingModel(IsingConfig(L=target_L, beta=beta, h=0.0, J=1.0, sampler=sampler))
     ising.equilibriate(1000)
 
     fine, coarse = [], []
     for _ in range(n_test + 100):
-        ising.metropolis_step(ising.state)
+        ising.sampling_step(ising.state)
         s = ising.state.copy()
         fine.append(s.astype(np.float32))
         coarse.append(RG.block_spin_transform(s).astype(np.float32).reshape(-1))
@@ -159,6 +162,7 @@ def summarize(rows: list[dict]) -> dict:
             "target_L": target_L,
             "beta": beta,
             "model": model,
+            "sampler": rows[0].get("sampler", "unknown"),
             "mean": mean,
             "std": std,
             "n": len(values),
@@ -168,10 +172,12 @@ def summarize(rows: list[dict]) -> dict:
 
 
 def run_experiment(n_seeds: int = 10, n_train: int = 500, n_test: int = 300,
-                   epochs: int = 200, batch_size: int = 32) -> tuple[list[dict], dict]:
+                   epochs: int = 200, batch_size: int = 32,
+                   sampler: str = "wolff") -> tuple[list[dict], dict]:
     print("\n" + "=" * 70, flush=True)
     print("  WHOLE-LATTICE / MULTI-SCALE TRANSFER EXPERIMENT", flush=True)
     print("  Protocol : tile source-scale predictor over the full target lattice", flush=True)
+    print(f"  Sampler  : {sampler}", flush=True)
     print(f"  Output   : {OUT_DIR}", flush=True)
     print("=" * 70, flush=True)
 
@@ -203,16 +209,17 @@ def run_experiment(n_seeds: int = 10, n_train: int = 500, n_test: int = 300,
                         )
 
                     model, train_mse = train_source_model(
-                        model_name, source_L, beta, seed, n_train, epochs, batch_size
+                        model_name, source_L, beta, seed, n_train, epochs, batch_size, sampler=sampler
                     )
 
                     for target_L in target_map[source_L]:
-                        test_mse = evaluate_on_target(model, source_L, target_L, beta, seed, n_test)
+                        test_mse = evaluate_on_target(model, source_L, target_L, beta, seed, n_test, sampler=sampler)
                         rows.append({
                             "source_L": source_L,
                             "target_L": target_L,
                             "beta": beta,
                             "model": model_name,
+                            "sampler": sampler,
                             "seed": seed,
                             "train_mse": train_mse,
                             "test_mse": test_mse,
@@ -238,4 +245,4 @@ def run_experiment(n_seeds: int = 10, n_train: int = 500, n_test: int = 300,
 
 
 if __name__ == "__main__":
-    run_experiment()
+    run_experiment(sampler="wolff")

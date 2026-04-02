@@ -38,6 +38,8 @@ class IsingConfig:
     beta: float           # Inverse temperature
     h: float = 0.0        # External field
     J: float = 1.0        # Coupling constant (ferromagnetic if J>0)
+    sampler: str = "metropolis"   # "metropolis" or "wolff"
+    wolff_cluster_coverage: float = 1.0  # clusters per sweep until flipped spins >= coverage * L^2
 
     def critical_beta(self) -> float:
         """Onsager's exact critical inverse temperature for h=0."""
@@ -81,6 +83,10 @@ class IsingModel:
         self.beta = config.beta
         self.h = config.h
         self.J = config.J
+        self.sampler = config.sampler
+        self.wolff_cluster_coverage = config.wolff_cluster_coverage
+        if self.sampler not in {"metropolis", "wolff"}:
+            raise ValueError(f"Unknown sampler: {self.sampler}")
         self.state: Optional[Array] = None
 
     def initialize(self, scheme: str = "random") -> Array:
@@ -118,6 +124,16 @@ class IsingModel:
         )
         return 2 * self.h * state[i, j] + 2 * self.J * state[i, j] * neighbors
 
+    def neighbor_indices(self, i: int, j: int) -> Tuple[Tuple[int, int], ...]:
+        """Return periodic nearest-neighbor indices."""
+        L = self.L
+        return (
+            ((i - 1) % L, j),
+            ((i + 1) % L, j),
+            (i, (j - 1) % L),
+            (i, (j + 1) % L),
+        )
+
     def metropolis_step(self, state: Array) -> Array:
         """One full Metropolis-Hastings sweep (L*L attempted flips)."""
         L = self.L
@@ -143,12 +159,97 @@ class IsingModel:
                 accepted += 1
         return state, accepted / total if total > 0 else 0.0
 
+    def wolff_step_with_stats(self, state: Array) -> Tuple[Array, Dict[str, float]]:
+        """执行一次 Wolff cluster flip，并返回 cluster 统计。"""
+        if self.h != 0.0:
+            raise ValueError("Wolff sampler currently supports h=0 only.")
+        if self.J <= 0:
+            raise ValueError("Wolff sampler currently assumes ferromagnetic J>0.")
+
+        L = self.L
+        seed_i = np.random.randint(L)
+        seed_j = np.random.randint(L)
+        cluster_spin = state[seed_i, seed_j]
+        add_prob = 1.0 - np.exp(-2.0 * self.beta * self.J)
+
+        in_cluster = np.zeros((L, L), dtype=bool)
+        stack = [(seed_i, seed_j)]
+        in_cluster[seed_i, seed_j] = True
+        cluster_size = 0
+
+        # 使用显式栈做 cluster growth，避免递归深度问题。
+        while stack:
+            i, j = stack.pop()
+            cluster_size += 1
+            for ni, nj in self.neighbor_indices(i, j):
+                if in_cluster[ni, nj] or state[ni, nj] != cluster_spin:
+                    continue
+                if np.random.rand() < add_prob:
+                    in_cluster[ni, nj] = True
+                    stack.append((ni, nj))
+
+        state[in_cluster] *= -1
+        cluster_fraction = cluster_size / float(L * L)
+        return state, {
+            "sampler_stat": cluster_fraction,
+            "sampler_stat_name": "cluster_fraction",
+            "cluster_fraction": cluster_fraction,
+            "mean_cluster_size": float(cluster_size),
+            "clusters_per_sweep": 1.0,
+        }
+
+    def wolff_sweep(self, state: Array) -> Array:
+        """执行一个近似 sweep：累计翻转的 cluster 覆盖到指定比例。"""
+        state, _ = self.wolff_sweep_with_stats(state)
+        return state
+
+    def wolff_sweep_with_stats(self, state: Array) -> Tuple[Array, Dict[str, float]]:
+        """执行由多个 cluster flip 组成的 Wolff sweep，并汇总统计。"""
+        target_flips = max(int(np.ceil(self.wolff_cluster_coverage * self.L * self.L)), 1)
+        flipped_spins = 0
+        cluster_sizes: List[int] = []
+
+        while flipped_spins < target_flips:
+            state, stats = self.wolff_step_with_stats(state)
+            cluster_size = int(round(stats["mean_cluster_size"]))
+            cluster_sizes.append(cluster_size)
+            flipped_spins += cluster_size
+
+        coverage = flipped_spins / float(self.L * self.L)
+        return state, {
+            "sampler_stat": coverage,
+            "sampler_stat_name": "cluster_coverage",
+            "cluster_coverage": coverage,
+            "mean_cluster_size": float(np.mean(cluster_sizes)),
+            "clusters_per_sweep": float(len(cluster_sizes)),
+        }
+
+    def sampling_step(self, state: Array) -> Array:
+        """按配置分发一次采样 sweep。"""
+        if self.sampler == "wolff":
+            return self.wolff_sweep(state)
+        return self.metropolis_step(state)
+
+    def sampling_step_with_stats(self, state: Array) -> Tuple[Array, Dict[str, float]]:
+        """按配置分发一次采样 sweep，并返回统一统计字段。"""
+        if self.sampler == "wolff":
+            return self.wolff_sweep_with_stats(state)
+
+        state, accepted_fraction = self.metropolis_step_with_stats(state)
+        return state, {
+            "sampler_stat": accepted_fraction,
+            "sampler_stat_name": "accepted_fraction",
+            "accepted_fraction": accepted_fraction,
+            "clusters_per_sweep": 0.0,
+            "mean_cluster_size": 1.0,
+        }
+
     def equilibriate(self, n_steps: int = 1000) -> Array:
         """Run equilibration steps, return final state."""
         if self.state is None:
             self.initialize()
         for _ in range(n_steps):
-            self.metropolis_step(self.state)
+            self.sampling_step(self.state)
         return self.state
 
     def sample(self, n_samples: int, eq_steps: int = 500,
@@ -166,7 +267,7 @@ class IsingModel:
 
         current = self.state.copy()
         for _ in range(n_samples * stride):
-            self.metropolis_step(current)
+            self.sampling_step(current)
             if _ % stride == 0:
                 samples.append(current.copy())
                 energies.append(self.energy(current))
@@ -202,23 +303,36 @@ class IsingModel:
         energies = np.zeros(n_sweeps, dtype=np.float64)
         mags_signed = np.zeros(n_sweeps, dtype=np.float64)
         mags_abs = np.zeros(n_sweeps, dtype=np.float64)
-        acceptance = np.zeros(n_sweeps, dtype=np.float64)
+        sampler_stat = np.zeros(n_sweeps, dtype=np.float64)
+        accepted_fraction = np.full(n_sweeps, np.nan, dtype=np.float64)
+        mean_cluster_size = np.full(n_sweeps, np.nan, dtype=np.float64)
+        clusters_per_sweep = np.full(n_sweeps, np.nan, dtype=np.float64)
 
         current = self.state.copy()
+        sampler_stat_name = "accepted_fraction" if self.sampler == "metropolis" else "cluster_coverage"
         for t in range(n_sweeps):
-            current, acc = self.metropolis_step_with_stats(current)
+            current, stats = self.sampling_step_with_stats(current)
             energies[t] = self.energy(current)
             m = np.mean(current)
             mags_signed[t] = m
             mags_abs[t] = abs(m)
-            acceptance[t] = acc
+            sampler_stat[t] = stats["sampler_stat"]
+            accepted_fraction[t] = stats.get("accepted_fraction", np.nan)
+            mean_cluster_size[t] = stats.get("mean_cluster_size", np.nan)
+            clusters_per_sweep[t] = stats.get("clusters_per_sweep", np.nan)
+            sampler_stat_name = stats.get("sampler_stat_name", sampler_stat_name)
 
         self.state = current
         return {
             "energy": energies,
             "magnetization_signed": mags_signed,
             "magnetization_abs": mags_abs,
-            "acceptance": acceptance,
+            "sampler": self.sampler,
+            "sampler_stat_name": sampler_stat_name,
+            "sampler_stat": sampler_stat,
+            "accepted_fraction": accepted_fraction,
+            "mean_cluster_size": mean_cluster_size,
+            "clusters_per_sweep": clusters_per_sweep,
         }
 
     def magnetization(self, state: Optional[Array] = None) -> float:

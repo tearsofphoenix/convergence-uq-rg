@@ -32,7 +32,8 @@ import matplotlib.pyplot as plt
 torch.manual_seed(42)
 np.random.seed(42)
 
-OUT_DIR = Path("/Users/isaacliu/workspace/convergence-uq-rg/outputs/convergence")
+REPO_ROOT = Path(__file__).resolve().parents[1]
+OUT_DIR = Path(os.environ.get("CONVERGENCE_OUT_DIR", REPO_ROOT / "outputs" / "convergence"))
 OUT_DIR.mkdir(parents=True, exist_ok=True)
 FIG_DIR = OUT_DIR / "figures"
 FIG_DIR.mkdir(parents=True, exist_ok=True)

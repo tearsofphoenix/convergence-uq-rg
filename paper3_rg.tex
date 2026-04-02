@@ -59,37 +59,39 @@
         using the 2D Ising block-spin transformation as a controlled test.
         The main supported benchmark in this revision uses a unified 10-seed
         same-scale / transfer pipeline.  At the critical point $\beta_c$ and
-        lattice size $L=16$, the MLP achieves test MSE $0.57 \pm 0.43$,
-        while a single linear layer achieves $0.20 \pm 0.09$
-        on the same task ($p=0.023$, Cohen $d=-1.2$); the linear model's
-        advantage is stronger at larger $L$ (Cohen $d=-16.4$ at $L=16$).
+        lattice size $L=16$, the MLP achieves test MSE $0.62 \pm 0.65$,
+        while a single linear layer achieves $0.17 \pm 0.09$
+        on the same task; the linear model's lower mean error remains visible,
+        but the strength of the difference depends on the statistical test
+        because the MLP variance is large (Welch $p=0.055$, Mann-Whitney
+        $p=0.026$, Cohen $d=-1.0$).  The linear model's
+        advantage is also pronounced in some off-critical same-scale settings.
         This demonstrates that the block-spin target is approximately linear in
         the spin variables at the critical point; the MLP's non-linear hidden
         layers provide no advantage --- and considerable instability
         (seed variance $0.43$) --- on this task.  We additionally ran a true
         whole-lattice tiled transfer experiment under a reduced exploratory
-        budget ($n=3$ seeds, $N_{\mathrm{train}}=200$, 40 epochs): at
-        $\beta_c$, the $8\to16$ tiled transfer gives
-        $0.293 \pm 0.190$ for the MLP and $0.244 \pm 0.129$ for the linear
-        model, versus same-budget same-$L=16$ baselines
-        $0.463 \pm 0.174$ and $0.287 \pm 0.170$.  This does not exhibit the
-        monotone scale-distance degradation posited in our original R2
-        criterion.  Dedicated sampler diagnostics further show strong critical
-        slowing down, with $\tau_{\mathrm{int}}(|M|)\approx 37$ sweeps at
-        $(L,\beta)=(16,\beta_c)$, so all cross-scale claims are treated as
-        exploratory rather than decisive evidence for RG-like behavior.
+        budget; it is methodologically informative but not decisive, and its results are
+        highly protocol-sensitive and do not support a stable monotone
+        scale-degradation law.  Dedicated sampler diagnostics further show
+        strong critical slowing down, with
+        $\tau_{\mathrm{int}}(|M|)\approx 37$ sweeps at $(L,\beta)=(16,\beta_c)$,
+        so all cross-scale claims are treated as exploratory rather than
+        decisive evidence for RG-like behavior.
         A translation-equivariant CNN (with block-spin inductive bias) achieves
-        near-zero MSE ($<10^{-5}$) at all $(L,\beta)$ combinations, confirming
-        that the block-spin map is perfectly learnable with the correct bias.
-        A turbulence extension (2D LBM, Re$=200$) yields
-        $\alpha = -1.30 \pm 0.05$ vs.\ Kolmogorov $-5/3 \approx -1.67$, and is
-        explicitly disclaimed as not constituting evidence for any criterion.
+        near-zero MSE in almost all tested $(L,\beta)$ combinations, with the
+        notable exception of $L=4$, $\beta=0.60$, showing that locality and
+        translation structure are sufficient to learn the supervised
+        block-spin map, but not by themselves evidence of RG-flow learning.  A
+        compressed non-evidentiary turbulence feasibility note is retained in
+        the appendix.
         We do not use the earlier random-label sanity check as a primary
         quantitative claim because it was generated under a separate fixed-split
         3-seed pilot protocol.
         This paper's central contribution is a \emph{scoped} negative result:
-        standard deep architectures do not exhibit RG-like advantages on
-        block-spin tasks that are well-approximated by locally linear projections.} 
+        in this local majority-vote block-spin setting, standard deep
+        architectures do not exhibit RG-like advantages on block-spin tasks
+        that are well-approximated by locally linear projections.} 
 \end{center}
 \clearpage
 \pagenumbering{roman}
@@ -195,17 +197,13 @@ structure of physical law and the structure of learned representations.
     \item Is this learning statistically meaningful (vs. random baselines)?
 
         Any sufficiently expressive model can memorize a finite training set.
-        To distinguish genuine block-spin learning from mere memorization, we
-        compare against a \emph{random-label baseline}: the same MLP architecture
-        trained on the same fine-grained inputs but with labels randomly shuffled
-        (each coarse-grained spin independently assigned $\pm1$ with probability
-        1/2).  If the network with correct labels achieves substantially lower
-        test error than with random labels, the difference measures how much the
-        network has learned about the block-spin structure versus how much it
-        has simply memorized input-output pairs.  This baseline is standard in
-        deep learning theory~\citep{zhang2016understanding} and is essential here
-        because the Ising spin configurations at $\beta_c$ contain rich structure
-        that a high-capacity network could in principle fit to arbitrary labels.
+        Our original design therefore included a random-label sanity check:
+        train the same MLP on identical fine-grained inputs but with
+        independently shuffled coarse labels.  If the correct-label model does
+        better than this control, the gap measures how much of the task is
+        genuine block-spin structure rather than generic memorization.  In the
+        present revision that control remains appendix-level because it was
+        produced under a separate pilot protocol.
 
     \item Does the learning quality degrade with scale distance, as RG theory predicts?
 
@@ -242,22 +240,33 @@ structure of physical law and the structure of learned representations.
         the physics embedded in the training data.
 \end{enumerate}
 
-\subsection{Operational Definition: ``RG-like Behavior''}
+\subsection{Operational Targets and Hypotheses}
 \label{sec:operational_def}
 
-We say a trained neural network exhibits \emph{RG-like behavior} if it satisfies:
+We retain the labels R1--R3 to organize the paper, but in this revision they
+do not all carry the same evidentiary status.  R1 motivates the original
+random-label sanity check, R2 is best read as a \emph{transfer hypothesis} to
+be tested under a unified multi-scale protocol, and R3 is an exploratory
+physics-extension target.
+
+\medskip\noindent
+Concretely:
 \begin{enumerate}
-    \item[(R1)] \textbf{Block-spin learning:} Test MSE on block-spin prediction
+    \item[(R1)] \textbf{Appendix-level sanity check:} Test MSE on block-spin prediction
         is significantly better than a random-label baseline at the same $\beta$.
-    \item[(R2)] \textbf{Scale-dependent degradation:} Cross-scale transfer error
-        (trained at $L$, tested at $L'$) increases monotonically with
-        $|L - L'|$ (RG flow distance), and the network outperforms linear baselines.
-    \item[(R3)] \textbf{Turbulence extension:} A neural closure model trained
+    \item[(R2)] \textbf{Scale-transfer hypothesis:} Under a unified multi-scale
+        transfer protocol, a genuinely RG-like model should exhibit a stable
+        relationship between transfer quality and scale distance and should
+        outperform competitive linear baselines.
+    \item[(R3)] \textbf{Turbulence extension target:} A neural closure model trained
         on subgrid stress reproduces Kolmogorov $k^{-5/3}$ inertial-range scaling
         in the energy spectrum.
 \end{enumerate}
-All three criteria must be satisfied for a network to be called RG-like.
-Failure of any criterion is a useful negative result.
+
+A convincing positive claim of RG-like computation would require aligned
+evidence across these targets under matched protocol and budget.  The present
+revision provides strong same-scale evidence, but only exploratory evidence for
+R2 and R3.
 
 \textbf{Revision scope.}  The present revision separates results by protocol.
 The primary quantitative claims use only the unified 10-seed benchmark saved in
@@ -273,16 +282,17 @@ accordingly.
 This paper locates itself as a scoped negative-result paper.
 The strongest supported claim is the same-scale comparison at
 $L=16$, $\beta_c$: the linear baseline outperforms the MLP
-($0.20 \pm 0.09$ vs.\ $0.57 \pm 0.43$).  The true whole-lattice tiled
-transfer diagnostic does not support the
-original monotone-degradation R2 criterion.  Under a reduced exploratory
-budget ($n=3$), $8\to16$ and $4\to16$ tiled transfer remain competitive with
-same-budget same-$L=16$ baselines at $\beta_c$, while linear baselines remain
-fully competitive.  Combined with the observed sampler autocorrelation at
-criticality, we treat cross-scale conclusions as exploratory and unresolved.
-We do not make a primary quantitative R1 claim from the separate random-label
-pilot.  R3 (turbulence) remains a feasibility demonstration only and does not
-count as evidence for any criterion.
+in mean test MSE ($0.17 \pm 0.09$ vs.\ $0.62 \pm 0.65$), although the
+strength of this difference is test-sensitive because of the MLP's large
+variance.  The true whole-lattice tiled
+transfer diagnostic does not support the original monotone-degradation R2
+hypothesis, but the current reduced-budget results are better interpreted as a
+warning that R2 is not yet a stable operational discriminator in this local-rule
+setting.  Combined with the observed sampler autocorrelation at criticality, we
+treat cross-scale conclusions as exploratory and unresolved.  We do not make a
+primary quantitative R1 claim from the separate random-label pilot.  R3
+(turbulence) remains a feasibility demonstration only and does not count as
+evidence for any criterion.
 
 The main negative finding is: a linear model substantially outperforms
 the MLP on the same block-spin task, implying the majority-vote
@@ -528,6 +538,33 @@ $\tau_{\mathrm{int}}(|M|)=9.6 \pm 3.0$ sweeps at $(L,\beta)=(8,\beta_c)$, and
 $18.8 \pm 7.3$ and $37.0 \pm 15.1$ sweeps at $(16,\beta_c)$, whereas away
 from criticality the corresponding values remain near $2$--$3$ sweeps.  This
 quantifies the critical slowing-down caveat rather than leaving it qualitative.
+The appropriate interpretation of the reported error bars and significance tests
+is therefore that of a finite-budget benchmark under correlated sampling,
+rather than thermodynamic-ensemble-level inference under effectively
+independent draws.  At $\beta_c$, the corresponding effective sample sizes are
+only approximately $218$ and $156$ for $(L,\beta)=(8,\beta_c)$, and
+$80$ and $41$ for $(16,\beta_c)$, for $E$ and $|M|$ respectively.
+
+\paragraph{Evidence tiers.}
+To keep evidence levels explicit, Table~\ref{tab:evidence_tiers} summarizes the
+three protocol tiers used in this revision.
+
+\begin{table}[ht]
+    \centering
+    \caption{Evidence tiers used in the revised manuscript.}
+    \small
+    \resizebox{\textwidth}{!}{%
+    \begin{tabular}{llll}
+        \toprule
+        \textbf{Tier} & \textbf{Protocol} & \textbf{Budget} & \textbf{Role} \\
+        \midrule
+        Main benchmark & Same-scale Ising benchmark & $n=10$, $500/300$, 200 epochs & Primary evidence \\
+        Exploratory transfer & Whole-lattice tiled transfer & $n=3$, $200/100$, 40 epochs & Methodological clarification \\
+        Appendix diagnostics & Pilot / spectral / turbulence / mixing & mixed auxiliary budgets & Non-primary support \\
+        \bottomrule
+    \end{tabular}}
+    \label{tab:evidence_tiers}
+\end{table}
 
 \subsection{Result 1: Same-Scale Block-Spin Benchmark}
 \label{sec:block_spin_learning}
@@ -549,23 +586,25 @@ tables below.
     \caption{Main same-scale Ising benchmark ($n=10$ seeds).
         All models are trained on block-spin labels under the unified protocol
         saved in \texttt{cross\_scale\_statistics.json}.  Values are mean
-        $\pm$ std dev over seeds $\{42,\dots,51\}$.}
+        $\pm$ std dev over seeds $\{42,\dots,51\}$.  This is the main benchmark
+        of record and is not directly comparable in evidence strength to the
+        reduced-budget exploratory transfer table below.}
     \begin{tabular}{lcccc}
         \toprule
         \textbf{Model} & \textbf{$\beta$} & \textbf{$L=4$ MSE} & \textbf{$L=8$ MSE} & \textbf{$L=16$ MSE (same-$L$)} \\
         \midrule
-        MLP     & 0.30  & $0.018 \pm 0.007$  & $0.220 \pm 0.027$  & $0.761 \pm 0.027$  \\
-        MLP     & $\beta_c$ & $0.117 \pm 0.065$  & $0.504 \pm 0.504$  & $0.567 \pm 0.427$  \\
-        MLP     & 0.60  & $0.019 \pm 0.027$  & $0.015 \pm 0.011$  & $0.019 \pm 0.020$  \\[4pt]
-        Linear  & 0.30  & $0.011 \pm 0.001$  & $0.025 \pm 0.003$  & $0.418 \pm 0.013$  \\
-        Linear  & $\beta_c$ & $0.018 \pm 0.013$  & $0.064 \pm 0.034$  & $0.196 \pm 0.094$  \\
-        Linear  & 0.60  & $0.014 \pm 0.019$  & $0.014 \pm 0.010$  & $0.012 \pm 0.013$  \\[4pt]
-        CNN     & 0.30  & $<10^{-5}$         & $<10^{-5}$         & $<10^{-5}$         \\
-        CNN     & $\beta_c$ & $<10^{-5}$     & $<10^{-5}$         & $<10^{-5}$         \\
-        CNN     & 0.60  & $0.036 \pm 0.073$  & $<10^{-5}$         & $<10^{-5}$         \\[4pt]
-        RGMLP   & 0.30  & $0.005 \pm 0.004$  & $0.405 \pm 0.047$  & $1.070 \pm 0.059$  \\
-        RGMLP   & $\beta_c$ & $0.115 \pm 0.088$  & $0.672 \pm 0.405$  & $0.707 \pm 0.488$  \\
-        RGMLP   & 0.60  & $0.077 \pm 0.187$  & $0.593 \pm 0.954$  & $0.807 \pm 1.193$  \\
+        MLP     & 0.30  & $0.0005 \pm 0.0006$  & $0.1198 \pm 0.0128$  & $0.6006 \pm 0.0287$  \\
+        MLP     & $\beta_c$ & $0.0307 \pm 0.0239$  & $0.2017 \pm 0.2187$  & $0.6249 \pm 0.6456$  \\
+        MLP     & 0.60  & $0.0168 \pm 0.0231$  & $0.1973 \pm 0.5341$  & $0.1178 \pm 0.1695$  \\[4pt]
+        Linear  & 0.30  & $0.0314 \pm 0.0059$  & $0.0536 \pm 0.0051$  & $0.4160 \pm 0.0123$  \\
+        Linear  & $\beta_c$ & $0.0357 \pm 0.0265$  & $0.0692 \pm 0.0309$  & $0.1736 \pm 0.0862$  \\
+        Linear  & 0.60  & $0.0159 \pm 0.0216$  & $0.0140 \pm 0.0092$  & $0.0106 \pm 0.0099$  \\[4pt]
+        CNN     & 0.30  & $3.2\times10^{-5} \pm 0.9\times10^{-5}$ & $1.0\times10^{-5} \pm 0.1\times10^{-5}$ & $3.6\times10^{-6} \pm 0.5\times10^{-6}$ \\
+        CNN     & $\beta_c$ & $5.4\times10^{-4} \pm 1.1\times10^{-3}$ & $2.8\times10^{-5} \pm 2.9\times10^{-5}$ & $6.0\times10^{-6} \pm 5.0\times10^{-6}$ \\
+        CNN     & 0.60  & $0.0248 \pm 0.0432$  & $0.0451 \pm 0.0714$  & $0.0028 \pm 0.0073$  \\[4pt]
+        RGMLP   & 0.30  & $0.4928 \pm 0.3231$  & $0.7612 \pm 0.3163$  & $1.1784 \pm 0.2744$  \\
+        RGMLP   & $\beta_c$ & $0.1542 \pm 0.0672$  & $0.5402 \pm 0.3147$  & $1.0646 \pm 1.0284$  \\
+        RGMLP   & 0.60  & $0.6601 \pm 1.3218$  & $1.7935 \pm 1.4374$  & $0.9792 \pm 1.2162$  \\
         \bottomrule
     \end{tabular}
     \label{tab:ising_main}
@@ -585,30 +624,39 @@ Key findings from Table~\ref{tab:ising_main}:
 \begin{enumerate}
     \item[(i)] \textbf{At $L=16$ and $\beta_c$, the linear baseline beats the MLP.}
         The unified same-scale benchmark gives
-        $0.196 \pm 0.094$ for Linear vs.\ $0.567 \pm 0.427$ for MLP at
-        $(L,\beta)=(16,\beta_c)$, with Welch $p=0.023$ and Cohen's
-        $d=-1.20$.  The critical-point task is therefore learnable, but the
-        extra non-linear capacity of the MLP does not help on this benchmark.
+        $0.1736 \pm 0.0862$ for Linear vs.\ $0.6249 \pm 0.6456$ for MLP at
+        $(L,\beta)=(16,\beta_c)$.  The mean ordering favors the linear model,
+        but the strength of the difference depends on the test because the MLP
+        variance is large (Welch $p=0.055$, Mann-Whitney $p=0.026$,
+        Cohen's $d=-0.98$).  The critical-point task is therefore learnable,
+        but the extra non-linear capacity of the MLP does not provide a robust
+        same-scale advantage.
 
     \item[(ii)] \textbf{Error depends strongly on phase and lattice size.}
         At $L=16$, both models are easiest in the ordered phase
-        ($0.019 \pm 0.020$ for MLP and $0.012 \pm 0.013$ for Linear at
+        ($0.1178 \pm 0.1695$ for MLP and $0.0106 \pm 0.0099$ for Linear at
         $\beta=0.60$), hardest in the disordered phase for the MLP
-        ($0.761 \pm 0.027$ at $\beta=0.30$), and most variable at the critical
+        ($0.6006 \pm 0.0287$ at $\beta=0.30$), and most variable at the critical
         point.  The temperature dependence in Figure~\ref{fig:temperature_dependence}
         shows that the critical regime carries the largest seed-to-seed
-        instability.
+        instability.  In particular, the disordered same-scale setting
+        $(L,\beta)=(16,0.30)$ yields an extreme effect size
+        ($d=-8.36$) because the mean gap is large while both models have small
+        standard deviation.
 
     \item[(iii)] \textbf{Architectural bias matters more than generic depth.}
         The CNN with explicit locality and translation structure reaches
         near-zero MSE across nearly all $(L,\beta)$ settings, whereas RGMLP is
         unstable and often worse than the plain MLP.  The task is therefore
         perfectly learnable with an appropriate inductive bias, but standard
-        fully connected depth alone is not enough.
+        fully connected depth alone is not enough.  This is not, by itself,
+        evidence that the CNN has learned a physically meaningful RG flow; it
+        shows only that locality and translation structure are sufficient for
+        the supervised block-spin map.
 \end{enumerate}
 
-The earlier random-label control is retained only as a pilot sanity check and
-is not used for the main quantitative claims in this revision.
+The earlier random-label control is retained only as an appendix-level pilot
+sanity check and is not used for the main quantitative claims in this revision.
 
 Figure~\ref{fig:temperature_dependence} summarizes the within-scale
 temperature trend at $L=16$: both models improve away from criticality,
@@ -676,6 +724,8 @@ script.
         The new whole-lattice tiled evaluation gives a different qualitative
         picture from the earlier patch-only proxy, which means cross-scale
         conclusions depend strongly on how transfer is operationalized.
+        Appendix~\ref{app:whole_lattice} (Table~\ref{tab:whole_lattice_all_beta})
+        shows that this non-monotone behavior is not confined to $\beta_c$.
 \end{itemize}
 
 \textbf{R2 assessment.}  The new whole-lattice experiment removes the
@@ -683,8 +733,10 @@ script.
 deliver a stable positive RG signature.  Instead, it shows that transfer in
 this benchmark is highly protocol- and budget-sensitive: the tiled
 whole-lattice evaluation does \emph{not} display monotone degradation with
-scale distance, and linear baselines remain competitive throughout.  We
-therefore treat R2 as unresolved in the present local-rule setting.
+scale distance, and linear baselines remain competitive throughout.  The right
+interpretation is therefore not that R2 has been cleanly falsified, but that
+for the present local-rule setting the original R2 formulation is not yet a
+stable operational discriminator.  We therefore keep R2 unresolved.
 
 \paragraph{Auxiliary analyses moved to the appendix.}
 Legacy pilot sanity checks, sampler diagnostics, the spectral-radius note, and
@@ -700,8 +752,8 @@ main-text evidence.
 
 The strongest supported result in the revised manuscript is the unified
 same-scale benchmark at $(L,\beta)=(16,\beta_c)$:
-Linear reaches $0.196 \pm 0.094$ while MLP reaches
-$0.567 \pm 0.427$ ($n=10$, Welch $p=0.023$).  We focus on this result
+Linear reaches $0.1736 \pm 0.0862$ while MLP reaches
+$0.6249 \pm 0.6456$ ($n=10$).  We focus on this result
 because it comes from the same 10-seed protocol used throughout the main
 tables; the earlier fixed-split random-label pilot is not used for the
 primary quantitative claim.
@@ -748,6 +800,24 @@ emerge.  At $\beta_c$, both $8\to16$ and $4\to16$ transfer remain
 competitive with the same-budget same-$L=16$ baseline, and the smaller source
 scale can even perform better numerically.  This means that, in the present
 local-rule setting, R2 is not a stable discriminator of RG-like behavior.
+
+Three non-exclusive mechanisms may explain why smaller source scales can appear
+to transfer better in the tiled experiment.  First, \emph{local-rule tileability}:
+once the source model has learned a sufficiently accurate local majority-vote
+rule, that rule can be repeated across the larger lattice without needing a new
+global representation.  Second, \emph{source-task simplification}: the
+$4\times4$ and $8\times8$ source problems may be easier optimization problems
+than the $16\times16$ one, so a smaller source scale can yield a cleaner local
+predictor.  Third, \emph{budget mismatch}: under the reduced exploratory budget,
+the same-$L=16$ baselines may remain under-optimized relative to the tiled
+transfer models, which weakens any attempt to read the ratios as intrinsic RG
+flow behavior.  This suggests that tiled transfer may primarily probe reusable
+locality of the learned block rule, rather than hierarchical scale-coupling in
+the RG sense.
+
+The across-temperature whole-lattice results strengthen this interpretation:
+non-monotone transfer is not a critical-point-specific anomaly, but looks more
+like a protocol artifact of tiled local-rule reuse across source scales.
 
 More broadly, our negative result suggests that the field should be more
 careful about what is being claimed when a neural network is said to
@@ -836,11 +906,20 @@ supports a narrower and internally consistent conclusion:
 
 \medskip\noindent
 \textbf{1. Same-scale benchmark:} In the unified 10-seed benchmark,
-the linear baseline outperforms the MLP at the critical point.
-At $(L,\beta)=(16,\beta_c)$ the MLP reaches
-$0.567 \pm 0.427$, while Linear reaches
-$0.196 \pm 0.094$ (Welch $p=0.023$, Cohen's $d=-1.20$).
-The MLP's extra non-linear depth provides no accuracy advantage on this task.
+the linear baseline has lower mean test MSE than the MLP at the critical
+point.  At $(L,\beta)=(16,\beta_c)$ the MLP reaches
+$0.6249 \pm 0.6456$, while Linear reaches
+$0.1736 \pm 0.0862$.  The mean ordering favors the linear model, but the
+strength of the difference depends on the statistical test because the MLP
+variance is large (Welch $p=0.055$, Mann-Whitney $p=0.026$, Cohen's
+$d=-0.98$).  Across the same-scale benchmark as a whole, however, no setting
+shows a robust MLP advantage over the linear baseline.
+
+\medskip\noindent
+\textbf{Methodological significance.}  The broader lesson is not that deep
+models can never exhibit RG-like structure, but that such claims must be tied
+to one internally consistent protocol, compared against linear baselines, and
+matched to an experiment that really tests the stated transfer property.
 
 \medskip\noindent
 \textbf{2. Whole-lattice tiled transfer:} In an exploratory but true
@@ -852,7 +931,12 @@ The even longer-range $4\to16$ transfer remains competitive
 ($0.141 \pm 0.107$ for MLP, $0.222 \pm 0.113$ for Linear), so monotone
 degradation with scale distance is not observed.  Linear baselines remain
 competitive throughout, so we still do not obtain a stable positive RG-like
-transfer signature.
+transfer signature.  Because this transfer table is reduced-budget and
+exploratory, we treat it primarily as a methodological clarification of how
+protocol-sensitive R2 is, not as evidence on the same footing as the main
+10-seed same-scale benchmark.  In particular, this exploratory whole-lattice
+result should not be read as positive RG-like evidence; it more likely reflects
+the operational ambiguity of the current transfer protocol.
 
 \medskip\noindent
 \textbf{3. Sampling diagnostics and exploratory turbulence:} Dedicated
@@ -883,22 +967,19 @@ and mixing outputs in \path{outputs/rg_bench/whole_lattice_transfer/} and
 \path{outputs/rg_bench/mixing_analysis/}.
 
 \medskip\noindent
-\textbf{Methodological significance.}  The broader lesson is not that deep
-models can never exhibit RG-like structure, but that such claims must be tied
-to one internally consistent protocol, compared against linear baselines, and
-matched to an experiment that really tests the stated transfer property.
+\textbf{Reproducibility.}  The main same-scale benchmark, exploratory
+whole-lattice transfer, and mixing diagnostics are all sourced from separate
+output directories and are not numerically mixed.  Legacy pilot ablations are
+kept separate for appendix-only sanity checks.
 
 \medskip\noindent
-\textbf{Reproducibility.}  The quantitative tables and figures in this
-revision are sourced from
-\path{cross_scale_raw.csv},
-\path{cross_scale_statistics.json},
-the whole-lattice transfer summaries in
-\path{outputs/rg_bench/whole_lattice_transfer/},
-and the mixing summaries in \path{outputs/rg_bench/mixing_analysis/}.
-Earlier pilot ablations live separately in
-\path{topic3_rg/ablation_rg.py} and are not numerically mixed with the main
-benchmark.
+\textbf{What a convincing positive result would require.}  A persuasive
+positive benchmark for RG-like transfer should satisfy at least four conditions:
+matched training budget across same-scale and transfer experiments, a true
+multi-scale chain (e.g.\ $4\to8\to16$ together with direct $4\to16$ and
+$8\to16$ comparisons), autocorrelation-aware sampling with reported effective
+sample sizes, and a transfer regime in which competitive linear baselines
+actually fail.
 
 \appendix
 
@@ -932,7 +1013,46 @@ integrated autocorrelation times and mean acceptance rates.
 The critical-point autocorrelation times are an order of magnitude larger than
 their off-critical counterparts, especially for $|M|$ at $L=16$.  This
 confirms that the benchmark should be read as a finite-budget computational
-study, not as an effectively independent-sample Monte Carlo analysis.
+study, not as an effectively independent-sample Monte Carlo analysis.  With
+3000 post-burn-in sweeps, the corresponding effective sample sizes are
+approximately $3000/(2\tau_{\mathrm{int}})\approx 218$ for $E$ and $156$ for
+$|M|$ at $(L,\beta)=(8,\beta_c)$, and approximately $80$ and $41$ at
+$(16,\beta_c)$.
+
+\section{Whole-Lattice Transfer Across Temperatures}
+\label{app:whole_lattice}
+
+Table~\ref{tab:whole_lattice_all_beta} reports the reduced-budget tiled
+whole-lattice transfer for all three temperatures.  The non-monotone transfer
+behavior is therefore not confined to $\beta_c$, although its interpretation
+remains exploratory because the full transfer experiment is only available at
+$n=3$ seeds and a smaller training budget than the main benchmark.
+
+\begin{table}[ht]
+    \centering
+    \caption{Exploratory whole-lattice tiled transfer across temperatures from
+        \texttt{whole\_lattice\_transfer/summary.json}.  All entries use
+        $n=3$ seeds, $N_{\mathrm{train}}=200$, $N_{\mathrm{test}}=100$, and
+        40 epochs.}
+    \begin{tabular}{llccc}
+        \toprule
+        \textbf{$\beta$} & \textbf{Source $\to$ Target} & \textbf{MLP} & \textbf{Linear} & \textbf{Comment} \\
+        \midrule
+        $0.30$ & $4\to8$   & $0.088 \pm 0.044$ & $0.562 \pm 0.104$ & MLP transfer better than same-$L=8$ \\
+        $0.30$ & $4\to16$  & $0.084 \pm 0.037$ & $0.545 \pm 0.081$ & MLP strongly below same-$L=16$ \\
+        $0.30$ & $8\to16$  & $0.344 \pm 0.015$ & $0.509 \pm 0.013$ & Both beat same-$L=16$ \\
+        \midrule
+        $\beta_c$ & $4\to8$   & $0.095 \pm 0.057$ & $0.168 \pm 0.088$ & Non-monotone vs.\ source scale \\
+        $\beta_c$ & $4\to16$  & $0.141 \pm 0.107$ & $0.222 \pm 0.113$ & Better than same-$L=16$ for both \\
+        $\beta_c$ & $8\to16$  & $0.293 \pm 0.190$ & $0.244 \pm 0.129$ & Competitive with same-$L=16$ \\
+        \midrule
+        $0.60$ & $4\to8$   & $0.019 \pm 0.009$ & $0.040 \pm 0.007$ & MLP near same-$L=8$; Linear degrades \\
+        $0.60$ & $4\to16$  & $0.016 \pm 0.011$ & $0.046 \pm 0.012$ & Strong model asymmetry \\
+        $0.60$ & $8\to16$  & $0.016 \pm 0.013$ & $0.017 \pm 0.012$ & Linear near same-$L=16$ \\
+        \bottomrule
+    \end{tabular}
+    \label{tab:whole_lattice_all_beta}
+\end{table}
 
 \section{Legacy Pilot Sanity Checks}
 \label{app:pilot}

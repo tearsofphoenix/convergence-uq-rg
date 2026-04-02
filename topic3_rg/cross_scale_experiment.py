@@ -390,6 +390,8 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
                 writer.writerows(results)
             print(f"  Part A checkpoint ({len(results)}/{total} rows): {ckpt_a}", flush=True)
 
+    part_a_results = results[:total]
+
     # ── Part B: Cross-scale experiment ════════════════════════════════════════
     print("\n\n[Part B] Patch-based transfer proxy: L=8 → L=16")
     print("  Train: native 8x8 input (64) -> 4x4 output (16)")
@@ -409,22 +411,24 @@ def run_cross_scale_experiment(n_seeds=10, n_train=500, n_test=300,
     total_b = len(part_b_configs)
 
     # Resume: skip Part B if checkpoint exists with all 420 rows
+    resumed_b_from = 0
     if ckpt_b.exists():
         with open(ckpt_b) as f:
             reader = csv.DictReader(f)
-            results = list(reader)
-        if len(results) == total + total_b:
+            part_b_results = list(reader)
+        if len(part_b_results) == total + total_b:
+            results = part_b_results
+            resumed_b_from = total_b
             print(f"  [RESUME] Part B already complete ({len(results)} total rows) — skipping to plots")
+        elif len(part_b_results) > total:
+            resumed_b_from = len(part_b_results) - total
+            results = part_a_results + part_b_results[total:]
+            print(f"  [RESUME] Part B partial ({len(part_b_results)}/{total+total_b} total) — resuming from checkpoint")
         else:
-            print(f"  [RESUME] Part B partial ({len(results)}/{total+total_b} total) — recomputing from scratch")
-            # Truncate to just Part A and recompute Part B
-            results = results[:total]
+            print(f"  [RESUME] Part B checkpoint is incompatible ({len(part_b_results)}/{total+total_b}); rebuilding Part B from fresh Part A results")
+            results = part_a_results.copy()
     else:
-        # Ensure results has only Part A (in case we resumed from Part A checkpoint)
-        if len(results) == total and not ckpt_b.exists():
-            pass  # results already has Part A only
-
-    resumed_b_from = len(results) - total if len(results) > total else 0
+        results = part_a_results.copy()
 
     for i, cfg in enumerate(part_b_configs):
         if i < resumed_b_from:
